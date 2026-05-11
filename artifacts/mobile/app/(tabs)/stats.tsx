@@ -130,7 +130,7 @@ export default function StatsScreen() {
             <Text style={[styles.summaryValue, { color: colors.success }]}>
               {formatMinutes(dailyAvg)}
             </Text>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Avg/Day</Text>
+            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Active avg</Text>
           </View>
           <View style={[styles.summaryCard, { backgroundColor: colors.warningLight, borderRadius: 14 }]}>
             <Text

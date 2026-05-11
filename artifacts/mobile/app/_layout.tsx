@@ -14,6 +14,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { RoutineProvider } from "@/context/RoutineContext";
 import { StudyProvider } from "@/context/StudyContext";
 
@@ -40,26 +41,28 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <RoutineProvider>
-                <StudyProvider>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                    <Stack.Screen
-                      name="subject/[id]"
-                      options={{
-                        headerShown: false,
-                        animation: "slide_from_right",
-                      }}
-                    />
-                  </Stack>
-                </StudyProvider>
-              </RoutineProvider>
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <RoutineProvider>
+                  <StudyProvider>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                      <Stack.Screen
+                        name="subject/[id]"
+                        options={{
+                          headerShown: false,
+                          animation: "slide_from_right",
+                        }}
+                      />
+                    </Stack>
+                  </StudyProvider>
+                </RoutineProvider>
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </QueryClientProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

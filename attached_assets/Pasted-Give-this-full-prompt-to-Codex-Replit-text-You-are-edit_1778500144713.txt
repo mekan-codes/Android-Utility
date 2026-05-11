@@ -1,0 +1,436 @@
+Give this full prompt to Codex/Replit:
+
+```text
+You are editing my existing Expo React Native app ResetFlow.
+
+The app is already built, but I want the following improvements and bug fixes added carefully without making the app laggy, heavy, or overloaded.
+
+Important:
+- Keep the app fully offline.
+- Keep the UI minimal and smooth.
+- Do not break existing Routine, Study, Stats, or Settings features.
+- Do not remove existing data structures unless necessary.
+- Use efficient state management and local storage.
+- Avoid unnecessary libraries unless they are needed.
+
+==================================================
+1. ADD THEME SUPPORT
+==================================================
+
+Add full theme support to the app.
+
+Theme options:
+1. Light
+2. Dark
+3. System default
+
+System default means the app follows the phone’s current theme.
+
+Add this setting in Settings:
+
+Theme:
+- System
+- Light
+- Dark
+
+Requirements:
+- Save selected theme locally.
+- Apply theme immediately after changing it.
+- When set to System, use the phone’s current color scheme.
+- If phone theme changes while app is using System mode, the app should update accordingly if possible.
+- Do not hardcode colors directly inside components.
+- Use a central theme system/design tokens.
+
+Create shared theme colors for:
+- background
+- card background
+- text primary
+- text secondary
+- border
+- accent
+- danger
+- success
+- muted
+- input background
+- button background
+- bottom navigation background
+- active tab
+- inactive tab
+
+Dark mode requirements:
+- Should look clean and modern.
+- Do not use pure black everywhere.
+- Use dark gray backgrounds with good contrast.
+- Cards should be slightly lighter than the background.
+- Text must be readable.
+- Buttons, checkboxes, progress bars, charts, and icons must be visible.
+
+Light mode requirements:
+- Keep the current clean look.
+- Do not make it too bright or cluttered.
+
+Apply theme to all screens:
+- Routine
+- Study
+- Stats
+- Settings
+- Subject detail page
+- Pomodoro screen
+- Modals
+- Task forms
+- Manual study entry
+- Export/import dialogs
+- Empty states
+- Charts
+- Bottom navigation
+
+==================================================
+2. FIX ICONS LOOKING WEIRD
+==================================================
+
+Some icons look weird in phone preview.
+
+Check and fix icon rendering.
+
+Requirements:
+- Make sure the icon library is imported correctly.
+- Make sure icon fonts/assets load correctly.
+- No icons should appear as boxes, question marks, missing symbols, or wrong icons.
+- Bottom tab icons should be consistent.
+- Icons should have consistent size.
+- Icons should be vertically aligned with labels.
+- Icons should work in both light mode and dark mode.
+- Icons should use theme colors instead of hardcoded colors.
+
+If using Expo vector icons:
+- Make sure the correct icon names are used.
+- Make sure icon fonts load before rendering if required.
+- Avoid mixing too many different icon families unless necessary.
+
+If icons are still unreliable, replace problematic icons with stable icons from one consistent icon family.
+
+==================================================
+3. FIX STATS AVERAGE CALCULATION
+==================================================
+
+There is a bug in Stats.
+
+Current problem:
+When I switch Stats to weekly/monthly/yearly, the app counts days where I did not study and lowers the average.
+
+Expected behavior:
+The average should only count active study days.
+
+Active study day means:
+A date inside the selected range where total studiedMinutes > 0.
+
+Formula:
+
+totalStudiedMinutes = sum of studiedMinutes in selected range
+
+activeStudyDays = number of unique dates in selected range where studiedMinutes > 0
+
+averagePerActiveDay = totalStudiedMinutes / activeStudyDays
+
+If activeStudyDays is 0:
+averagePerActiveDay = 0
+
+Example:
+Selected range: 7 days
+
+Monday: 60 min
+Tuesday: 0
+Wednesday: 30 min
+Thursday: 0
+Friday: 0
+Saturday: 0
+Sunday: 0
+
+Total = 90 min
+Active study days = 2
+Average = 45 min/day
+
+Do not calculate:
+90 / 7
+
+Important:
+- The chart can still show zero-study days as empty bars for visual context.
+- But the average number must only use active study days.
+- Rename the label from “Daily Average” to “Average per active day” so the meaning is clear.
+
+Apply this to:
+- 7 Days
+- 30 Days
+- Year
+- All Time
+
+For Today:
+- If studiedMinutes > 0, average can equal today’s total.
+- If no study, average should be 0.
+
+==================================================
+4. MAKE STATS FILTERS FULLY INTERACTIVE
+==================================================
+
+The top Stats cards/filters should be usable, not just display numbers.
+
+Required filters:
+- Today
+- 7 Days
+- 30 Days
+- Year
+- All Time
+
+When user taps a filter:
+- selected filter updates
+- total studied time updates
+- average per active day updates
+- subject breakdown updates
+- chart updates
+- selected filter/card gets active styling
+
+Active styling:
+- selected filter should be visually obvious
+- use accent color
+- keep it minimal
+
+Subject breakdown:
+- should update based on selected range
+- should show subject name, time studied, and maybe progress bar
+- if no study data, show clean empty state
+
+==================================================
+5. FIX EXPORT BACKUP
+==================================================
+
+Current problem:
+Export shows raw JSON text instead of giving me a real file.
+
+Expected export behavior:
+When user taps Export Backup:
+- Create a real .json file.
+- File name example:
+  resetflow_backup_YYYY-MM-DD.json
+- Write the backup JSON into the file.
+- Open the phone’s share/save dialog.
+- User should be able to save/share the file through Files, Drive, Telegram, etc.
+- Do not just display raw text on screen.
+- Show success message if export works.
+- Show clear error message if export fails.
+
+Implementation guidance for Expo React Native:
+- Use expo-file-system to write the JSON string to a file.
+- Use expo-sharing to share/save the created file.
+- Check Sharing.isAvailableAsync() before sharing.
+- Use MIME type application/json if supported.
+
+Backup JSON should include:
+
+{
+  "version": 1,
+  "exportedAt": "ISO_DATE_STRING",
+  "tasks": [],
+  "subjects": [],
+  "studySessions": [],
+  "pomodoroSettings": {},
+  "settings": {},
+  "items": [],
+  "checklists": []
+}
+
+If items/checklists are not implemented yet, export empty arrays.
+
+Export must include all existing important local data:
+- daily routine tasks
+- temporary tasks
+- subjects
+- study sessions
+- Pomodoro settings
+- theme setting
+- app settings
+
+==================================================
+6. FIX IMPORT BACKUP
+==================================================
+
+Current problem:
+Import button does not work.
+
+Expected import behavior:
+When user taps Import Backup:
+- Open document picker.
+- User selects a .json file.
+- Read file contents.
+- Parse JSON.
+- Validate backup version and required fields.
+- Show preview before import.
+- Ask confirmation before replacing current data.
+- If confirmed, replace current local data.
+- If import fails, do not modify current data.
+
+Implementation guidance for Expo React Native:
+- Use expo-document-picker.
+- Use DocumentPicker.getDocumentAsync({
+    type: "application/json",
+    copyToCacheDirectory: true
+  })
+- Read selected file URI using expo-file-system.
+- copyToCacheDirectory must be true so the file can be read reliably.
+
+Import preview should show:
+- number of tasks found
+- number of subjects found
+- number of study sessions found
+- whether settings were found
+
+Confirmation message:
+“This will replace your current app data. Continue?”
+
+Buttons:
+- Cancel
+- Import
+
+For MVP:
+- Use Replace current data.
+
+Later merge can be added, but not necessary now.
+
+Import validation:
+- Check version exists.
+- Check tasks is an array.
+- Check subjects is an array.
+- Check studySessions is an array.
+- Check settings exists or safely fallback to defaults.
+- Check pomodoroSettings exists or safely fallback to defaults.
+
+Important rules:
+- Never partially import corrupted data.
+- Validate everything before replacing current storage.
+- If import fails, keep current data unchanged.
+- Show useful error message.
+- Keep import/export fully offline.
+
+==================================================
+7. SETTINGS PAGE UPDATE
+==================================================
+
+Update Settings page to include:
+
+Appearance:
+- Theme: System / Light / Dark
+
+Data:
+- Export Backup
+- Import Backup
+- Last backup date
+- Total tasks
+- Total subjects
+- Total study sessions
+- Local-only storage indicator
+
+Example:
+
+Appearance
+Theme: System
+
+Data
+Export Backup
+Import Backup
+
+Storage
+Local only
+Tasks: 12
+Subjects: 6
+Study sessions: 42
+Last backup: Never
+
+Do not make Settings crowded. Use clean cards/sections.
+
+==================================================
+8. PERFORMANCE REQUIREMENTS
+==================================================
+
+Do not make the app laggy.
+
+Requirements:
+- Avoid unnecessary re-renders.
+- Do not calculate heavy stats on every render if avoidable.
+- Use memoization for stats calculations where useful.
+- Keep charts simple.
+- Do not load unnecessary data into UI.
+- Do not add heavy animations.
+- Marking a task done must feel instant.
+- Switching tabs must stay smooth.
+- Theme switching should be quick.
+- Import/export should show loading state while processing.
+- Large backup import should not freeze the UI badly.
+
+If needed:
+- Calculate study stats from sessions using efficient filtering.
+- Group sessions by date only once per selected range.
+- Use cached/memoized derived data for Stats screen.
+
+==================================================
+9. TESTING CHECKLIST
+==================================================
+
+After implementation, test these manually:
+
+Theme:
+1. Set Light theme.
+2. Set Dark theme.
+3. Set System theme.
+4. Change phone theme and confirm app follows it if System is selected.
+5. Check all screens in light and dark mode.
+
+Icons:
+1. Check bottom navigation icons.
+2. Check task icons/buttons.
+3. Check study play icons.
+4. Check settings icons.
+5. Confirm no icons appear broken.
+
+Stats:
+1. Add study session on only 2 days in a 7-day range.
+2. Confirm average uses only those 2 active days.
+3. Confirm chart can still show empty days.
+4. Check Today / 7 Days / 30 Days / Year / All Time filters.
+5. Confirm subject breakdown changes correctly.
+
+Export:
+1. Tap Export Backup.
+2. Confirm a real .json file is created/shared.
+3. Confirm it does not only display raw text.
+
+Import:
+1. Tap Import Backup.
+2. Pick a valid backup JSON.
+3. Confirm preview appears.
+4. Confirm confirmation appears.
+5. Import and verify data is restored.
+6. Try invalid JSON and confirm current data is not changed.
+
+Regression:
+1. Daily routine tasks still reset correctly.
+2. Temporary tasks still disappear/carry forward correctly.
+3. Pomodoro still saves study time correctly.
+4. Manual study sessions still work.
+5. Subject detail page still works.
+
+==================================================
+FINAL GOAL
+==================================================
+
+After these changes, ResetFlow should have:
+- Light theme
+- Dark theme
+- System default theme
+- Fixed icons
+- Correct average per active study day
+- Interactive Stats filters
+- Real JSON export file
+- Working JSON import
+- Smooth performance
+- Minimal UI
+- Fully offline behavior
+```
