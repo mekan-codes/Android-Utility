@@ -107,7 +107,7 @@ export default function SubjectDetailScreen() {
   const handleDelete = () => {
     Alert.alert(
       "Delete Subject",
-      "This will remove the subject. Study sessions are kept.",
+      "This removes the subject. Existing study sessions are kept in your history.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -226,7 +226,7 @@ export default function SubjectDetailScreen() {
                 >
                   <View style={[styles.sessionDot, { backgroundColor: subject.color }]} />
                   <View style={styles.sessionInfo}>
-                    <Text style={[styles.sessionDate, { color: colors.foreground }]}>{dateLabel} · {timeStr}</Text>
+                    <Text style={[styles.sessionDate, { color: colors.foreground }]}>{dateLabel} - {timeStr}</Text>
                     {session.note ? (
                       <Text style={[styles.sessionNote, { color: colors.mutedForeground }]} numberOfLines={1}>
                         {session.note}
@@ -237,9 +237,9 @@ export default function SubjectDetailScreen() {
                     <Text style={[styles.sessionDuration, { color: colors.foreground }]}>
                       {formatMinutes(session.durationMinutes)}
                     </Text>
-                    <View style={[styles.typeBadge, { backgroundColor: session.type === "pomodoro" ? colors.secondary : colors.warningLight }]}>
-                      <Text style={[styles.typeText, { color: session.type === "pomodoro" ? colors.primary : colors.warning }]}>
-                        {session.type === "pomodoro" ? "Pomo" : "Manual"}
+                    <View style={[styles.typeBadge, { backgroundColor: session.source === "pomodoro" ? colors.secondary : colors.warningLight }]}>
+                      <Text style={[styles.typeText, { color: session.source === "pomodoro" ? colors.primary : colors.warning }]}>
+                        {session.source === "pomodoro" ? "Pomo" : "Manual"}
                       </Text>
                     </View>
                   </View>

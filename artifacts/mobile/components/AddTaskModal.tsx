@@ -12,81 +12,67 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { ReminderOffsetMinutes } from "@/utils/notifications";
 
 interface AddTaskModalProps {
   visible: boolean;
   type: "daily" | "temp";
   onClose: () => void;
-  onAdd: (name: string, deadline?: string) => void;
+  onAdd: (name: string, deadline?: string, reminderOffsetMinutes?: ReminderOffsetMinutes) => void;
 }
 
-export default function AddTaskModal({
-  visible,
-  type,
-  onClose,
-  onAdd,
-}: AddTaskModalProps) {
+const REMINDER_OPTIONS: { label: string; value: ReminderOffsetMinutes }[] = [
+  { label: "None", value: null },
+  { label: "At time", value: 0 },
+  { label: "5m", value: 5 },
+  { label: "10m", value: 10 },
+  { label: "30m", value: 30 },
+];
+
+export default function AddTaskModal({ visible, type, onClose, onAdd }: AddTaskModalProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [reminderOffsetMinutes, setReminderOffsetMinutes] = useState<ReminderOffsetMinutes>(null);
+
+  const reset = () => {
+    setName("");
+    setDeadline("");
+    setReminderOffsetMinutes(null);
+  };
 
   const handleAdd = () => {
     const trimmed = name.trim();
+    const deadlineValue = deadline.trim();
     if (!trimmed) return;
-    onAdd(trimmed, deadline.trim() || undefined);
-    setName("");
-    setDeadline("");
+    onAdd(trimmed, deadlineValue || undefined, deadlineValue ? reminderOffsetMinutes : null);
+    reset();
     onClose();
   };
 
   const handleClose = () => {
-    setName("");
-    setDeadline("");
+    reset();
     onClose();
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={styles.overlay} onPress={handleClose}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.kavWrapper}
-        >
-          <Pressable
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: colors.card,
-                paddingBottom: insets.bottom + 16,
-              },
-            ]}
-          >
-            <View style={styles.handle} />
-
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kavWrapper}>
+          <Pressable style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
             <Text style={[styles.title, { color: colors.foreground }]}>
               {type === "daily" ? "Add Daily Task" : "Add Task for Today"}
             </Text>
             {type === "temp" && (
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                This task will disappear at end of day
+                This task disappears after today unless you move it forward.
               </Text>
             )}
 
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.muted,
-                  color: colors.foreground,
-                  borderRadius: 10,
-                },
-              ]}
+              style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
               placeholder="Task name"
               placeholderTextColor={colors.mutedForeground}
               value={name}
@@ -97,15 +83,8 @@ export default function AddTaskModal({
             />
 
             <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.muted,
-                  color: colors.foreground,
-                  borderRadius: 10,
-                },
-              ]}
-              placeholder="Deadline (e.g. 22:00) — optional"
+              style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
+              placeholder="Deadline, optional (22:00)"
               placeholderTextColor={colors.mutedForeground}
               value={deadline}
               onChangeText={setDeadline}
@@ -113,27 +92,36 @@ export default function AddTaskModal({
               onSubmitEditing={handleAdd}
             />
 
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Reminder</Text>
+            <View style={styles.reminderRow}>
+              {REMINDER_OPTIONS.map((option) => {
+                const active = reminderOffsetMinutes === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.label}
+                    onPress={() => setReminderOffsetMinutes(option.value)}
+                    style={[
+                      styles.reminderChip,
+                      {
+                        backgroundColor: active ? colors.primary : colors.muted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.reminderChipText, { color: active ? "#fff" : colors.mutedForeground }]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             <TouchableOpacity
-              style={[
-                styles.addBtn,
-                {
-                  backgroundColor: name.trim() ? colors.primary : colors.muted,
-                  borderRadius: 12,
-                },
-              ]}
+              style={[styles.addBtn, { backgroundColor: name.trim() ? colors.primary : colors.muted }]}
               onPress={handleAdd}
               disabled={!name.trim()}
             >
-              <Text
-                style={[
-                  styles.addBtnText,
-                  {
-                    color: name.trim()
-                      ? colors.primaryForeground
-                      : colors.mutedForeground,
-                  },
-                ]}
-              >
+              <Text style={[styles.addBtnText, { color: name.trim() ? colors.primaryForeground : colors.mutedForeground }]}>
                 Add Task
               </Text>
             </TouchableOpacity>
@@ -145,51 +133,34 @@ export default function AddTaskModal({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
-  },
-  kavWrapper: {
-    justifyContent: "flex-end",
-  },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
+  kavWrapper: { justifyContent: "flex-end" },
   sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     paddingTop: 12,
     paddingHorizontal: 20,
     gap: 12,
   },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#D1D5DB",
-    alignSelf: "center",
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-  },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    marginTop: -6,
-  },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 8 },
+  title: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -6 },
   input: {
     paddingHorizontal: 14,
     paddingVertical: 13,
+    borderRadius: 10,
     fontSize: 15,
     fontFamily: "Inter_400Regular",
   },
-  addBtn: {
-    paddingVertical: 15,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  addBtnText: {
-    fontSize: 16,
+  label: {
+    fontSize: 12,
     fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
+  reminderRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  reminderChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1 },
+  reminderChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  addBtn: { paddingVertical: 15, alignItems: "center", borderRadius: 12, marginTop: 4 },
+  addBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
 });

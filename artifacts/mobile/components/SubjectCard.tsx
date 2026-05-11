@@ -13,7 +13,10 @@ interface SubjectCardProps {
   weekMinutes: number;
   isActive: boolean;
   onStart: () => void;
+  onStart25?: () => void;
+  onStart50?: () => void;
   onDelete: () => void;
+  onArchive?: () => void;
   onEdit: () => void;
   onAddManual: () => void;
 }
@@ -34,7 +37,10 @@ export default function SubjectCard({
   weekMinutes,
   isActive,
   onStart,
+  onStart25,
+  onStart50,
   onDelete,
+  onArchive,
   onEdit,
   onAddManual,
 }: SubjectCardProps) {
@@ -53,9 +59,12 @@ export default function SubjectCard({
   const handleLongPress = () => {
     Alert.alert(name, "What would you like to do?", [
       { text: "Cancel", style: "cancel" },
+      { text: "Start 25 min", onPress: onStart25 ?? onStart },
+      { text: "Start 50 min", onPress: onStart50 ?? onStart },
       { text: "View Details", onPress: handlePress },
       { text: "Add Manual Time", onPress: onAddManual },
       { text: "Edit Subject", onPress: onEdit },
+      ...(onArchive ? [{ text: "Archive", onPress: onArchive }] : []),
       { text: "Delete", style: "destructive", onPress: onDelete },
     ]);
   };

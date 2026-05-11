@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Platform,
   ScrollView,
@@ -19,10 +19,6 @@ function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-function getTodayStr(): string {
-  return new Date().toISOString().split("T")[0] as string;
 }
 
 const FILTERS: { key: StatFilter; label: string }[] = [
@@ -46,7 +42,7 @@ export default function StatsScreen() {
     getFilterDailyAverage,
     getBestSubjectForFilter,
     getSessionsForFilter,
-    getLast7DaysData,
+    getChartData,
   } = useStudy();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -56,43 +52,29 @@ export default function StatsScreen() {
   const dailyAvg = getFilterDailyAverage(activeFilter);
   const bestSubject = getBestSubjectForFilter(activeFilter);
   const filteredSessions = getSessionsForFilter(activeFilter);
-  const last7 = getLast7DaysData();
-  const maxBarMinutes = Math.max(...last7.map((d) => d.minutes), 1);
+  const chartData = getChartData(activeFilter);
+  const maxBarMinutes = Math.max(...chartData.map((d) => d.minutes), 1);
 
-  // Subject breakdown for selected filter
-  const subjectBreakdown = subjects
-    .map((s) => ({
-      subject: s,
-      minutes: getFilterMinutes(activeFilter, s.id),
-    }))
+  const subjectBreakdown = useMemo(() => subjects
+    .map((s) => ({ subject: s, minutes: getFilterMinutes(activeFilter, s.id) }))
     .filter((item) => item.minutes > 0)
-    .sort((a, b) => b.minutes - a.minutes);
+    .sort((a, b) => b.minutes - a.minutes), [activeFilter, getFilterMinutes, subjects]);
 
-  // Recent sessions for selected filter
-  const recentSessions = [...filteredSessions]
+  const recentSessions = useMemo(() => [...filteredSessions]
     .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
-    .slice(0, 10);
+    .slice(0, 10), [filteredSessions]);
 
   const maxSubjectMinutes = Math.max(...subjectBreakdown.map((i) => i.minutes), 1);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingTop: topPad + 16, paddingBottom: bottomPad + 110 },
-        ]}
+        contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: bottomPad + 110 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.headline, { color: colors.foreground }]}>Statistics</Text>
+        <Text style={[styles.headline, { color: colors.foreground }]}>Stats</Text>
 
-        {/* Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterRow}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
           {FILTERS.map((f) => (
             <TouchableOpacity
               key={f.key}
@@ -102,57 +84,42 @@ export default function StatsScreen() {
                 {
                   backgroundColor: activeFilter === f.key ? colors.primary : colors.card,
                   borderColor: activeFilter === f.key ? colors.primary : colors.border,
-                  borderRadius: 10,
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  { color: activeFilter === f.key ? "#fff" : colors.mutedForeground },
-                ]}
-              >
+              <Text style={[styles.filterTabText, { color: activeFilter === f.key ? "#fff" : colors.mutedForeground }]}>
                 {f.label}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* Summary Cards */}
         <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, { backgroundColor: colors.primary + "15", borderRadius: 14 }]}>
-            <Text style={[styles.summaryValue, { color: colors.primary }]}>
-              {formatMinutes(totalMinutes)}
-            </Text>
+          <View style={[styles.summaryCard, { backgroundColor: colors.primary + "15" }]}>
+            <Text style={[styles.summaryValue, { color: colors.primary }]}>{formatMinutes(totalMinutes)}</Text>
             <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Total</Text>
           </View>
-          <View style={[styles.summaryCard, { backgroundColor: colors.success + "15", borderRadius: 14 }]}>
-            <Text style={[styles.summaryValue, { color: colors.success }]}>
-              {formatMinutes(dailyAvg)}
-            </Text>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Active avg</Text>
+          <View style={[styles.summaryCard, { backgroundColor: colors.success + "15" }]}>
+            <Text style={[styles.summaryValue, { color: colors.success }]}>{formatMinutes(dailyAvg)}</Text>
+            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Avg active day</Text>
           </View>
-          <View style={[styles.summaryCard, { backgroundColor: colors.warningLight, borderRadius: 14 }]}>
-            <Text
-              style={[styles.summaryValue, { color: colors.warning }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-            >
-              {bestSubject?.name ?? "—"}
+          <View style={[styles.summaryCard, { backgroundColor: colors.warningLight }]}>
+            <Text style={[styles.summaryValue, { color: colors.warning }]} numberOfLines={1} adjustsFontSizeToFit>
+              {bestSubject?.name ?? "None"}
             </Text>
             <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Best</Text>
           </View>
         </View>
 
-        {/* Weekly Bar Chart — always shows last 7 days */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>Last 7 Days</Text>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+            {FILTERS.find((f) => f.key === activeFilter)?.label} Chart
+          </Text>
           <View style={styles.barChart}>
-            {last7.map((day, i) => {
+            {chartData.map((day, i) => {
               const heightPct = day.minutes / maxBarMinutes;
-              const isToday = i === 6;
               return (
-                <View key={i} style={styles.barCol}>
+                <View key={`${day.date}-${i}`} style={styles.barCol}>
                   <Text style={[styles.barValue, { color: colors.mutedForeground }]}>
                     {day.minutes > 0 ? formatMinutes(day.minutes) : ""}
                   </Text>
@@ -161,19 +128,13 @@ export default function StatsScreen() {
                       style={[
                         styles.barFill,
                         {
-                          height: `${Math.max(4, heightPct * 100)}%` as `${number}%`,
-                          backgroundColor: isToday ? colors.primary : colors.primary + "55",
-                          borderRadius: 4,
+                          height: `${day.minutes > 0 ? Math.max(5, heightPct * 100) : 0}%` as `${number}%`,
+                          backgroundColor: colors.primary,
                         },
                       ]}
                     />
                   </View>
-                  <Text
-                    style={[
-                      styles.barLabel,
-                      { color: isToday ? colors.primary : colors.mutedForeground },
-                    ]}
-                  >
+                  <Text style={[styles.barLabel, { color: colors.mutedForeground }]} numberOfLines={1}>
                     {day.label}
                   </Text>
                 </View>
@@ -182,22 +143,17 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        {/* Subject Breakdown */}
         {subjectBreakdown.length > 0 ? (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>By Subject</Text>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>Subject Breakdown</Text>
             {subjectBreakdown.map(({ subject, minutes }) => {
               const pct = minutes / maxSubjectMinutes;
               return (
-                <TouchableOpacity
-                  key={subject.id}
-                  onPress={() => router.push(`/subject/${subject.id}`)}
-                  style={styles.subjectRow}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity key={subject.id} onPress={() => router.push(`/subject/${subject.id}`)} style={styles.subjectRow}>
                   <View style={styles.subjectMeta}>
                     <View style={[styles.subjectDot, { backgroundColor: subject.color }]} />
                     <Text style={[styles.subjectName, { color: colors.foreground }]}>{subject.name}</Text>
+                    <Text style={[styles.subjectMinutes, { color: colors.foreground }]}>{formatMinutes(minutes)}</Text>
                     <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
                   </View>
                   <View style={[styles.subjectTrack, { backgroundColor: colors.muted }]}>
@@ -211,23 +167,18 @@ export default function StatsScreen() {
                       ]}
                     />
                   </View>
-                  <Text style={[styles.subjectMinutes, { color: colors.foreground }]}>
-                    {formatMinutes(minutes)}
-                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         ) : null}
 
-        {/* Recent Sessions */}
         {recentSessions.length > 0 ? (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>Recent Sessions</Text>
             {recentSessions.map((session, idx) => {
               const subject = subjects.find((s) => s.id === session.subjectId);
               const date = new Date(session.completedAt);
-              const isToday = session.date === getTodayStr();
               const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
               return (
                 <View
@@ -242,30 +193,18 @@ export default function StatsScreen() {
                 >
                   <View style={[styles.sessionDot, { backgroundColor: subject?.color ?? colors.primary }]} />
                   <View style={styles.sessionInfo}>
-                    <Text style={[styles.sessionSubject, { color: colors.foreground }]}>
-                      {session.subjectName}
-                    </Text>
+                    <Text style={[styles.sessionSubject, { color: colors.foreground }]}>{session.subjectName}</Text>
                     <Text style={[styles.sessionMeta, { color: colors.mutedForeground }]}>
-                      {isToday ? "Today" : session.date} · {timeStr}
+                      {session.date} - {timeStr}
                     </Text>
                   </View>
                   <View style={styles.sessionRight}>
                     <Text style={[styles.sessionDuration, { color: colors.foreground }]}>
                       {formatMinutes(session.durationMinutes)}
                     </Text>
-                    <View
-                      style={[
-                        styles.typeBadge,
-                        { backgroundColor: session.type === "pomodoro" ? colors.secondary : colors.warningLight },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.typeText,
-                          { color: session.type === "pomodoro" ? colors.primary : colors.warning },
-                        ]}
-                      >
-                        {session.type === "pomodoro" ? "Pomo" : "Manual"}
+                    <View style={[styles.typeBadge, { backgroundColor: session.source === "pomodoro" ? colors.secondary : colors.warningLight }]}>
+                      <Text style={[styles.typeText, { color: session.source === "pomodoro" ? colors.primary : colors.warning }]}>
+                        {session.source === "pomodoro" ? "Pomo" : "Manual"}
                       </Text>
                     </View>
                   </View>
@@ -275,14 +214,16 @@ export default function StatsScreen() {
           </View>
         ) : null}
 
-        {/* Empty state */}
         {sessions.length === 0 && (
           <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="bar-chart-2" size={32} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No study sessions yet</Text>
             <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>
-              Start a Pomodoro session on the Study tab
+              Start a Pomodoro session on the Study tab.
             </Text>
+            <TouchableOpacity onPress={() => router.push("/study")} style={[styles.emptyBtn, { backgroundColor: colors.primary }]}>
+              <Text style={styles.emptyBtnText}>Go to Study</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -293,45 +234,30 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 18 },
-  headline: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: -0.5, marginBottom: 14 },
+  headline: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 14 },
   filterScroll: { marginBottom: 14 },
   filterRow: { flexDirection: "row", gap: 8 },
-  filterTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-  },
+  filterTab: { paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderRadius: 10 },
   filterTabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   summaryRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  summaryCard: { flex: 1, padding: 12, alignItems: "center", gap: 4 },
+  summaryCard: { flex: 1, padding: 12, alignItems: "center", gap: 4, borderRadius: 12 },
   summaryValue: { fontSize: 16, fontFamily: "Inter_700Bold" },
   summaryLabel: { fontSize: 10, fontFamily: "Inter_500Medium", textAlign: "center" },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 14,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
+  card: { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 14, gap: 12 },
   cardTitle: { fontSize: 15, fontFamily: "Inter_700Bold", marginBottom: -4 },
-  barChart: { flexDirection: "row", alignItems: "flex-end", height: 96, gap: 4 },
+  barChart: { flexDirection: "row", alignItems: "flex-end", height: 110, gap: 4 },
   barCol: { flex: 1, alignItems: "center", gap: 3, height: "100%", justifyContent: "flex-end" },
   barValue: { fontSize: 8, fontFamily: "Inter_500Medium", textAlign: "center" },
   barTrack: { width: "100%", flex: 1, borderRadius: 4, overflow: "hidden", justifyContent: "flex-end" },
-  barFill: { width: "100%" },
-  barLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", textAlign: "center" },
-  subjectRow: { gap: 6 },
+  barFill: { width: "100%", borderRadius: 4 },
+  barLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", textAlign: "center", maxWidth: 36 },
+  subjectRow: { gap: 7 },
   subjectMeta: { flexDirection: "row", alignItems: "center", gap: 8 },
   subjectDot: { width: 10, height: 10, borderRadius: 5 },
   subjectName: { fontSize: 14, fontFamily: "Inter_600SemiBold", flex: 1 },
   subjectTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
   subjectFill: { height: "100%", borderRadius: 3 },
-  subjectMinutes: { fontSize: 13, fontFamily: "Inter_700Bold", textAlign: "right" },
+  subjectMinutes: { fontSize: 13, fontFamily: "Inter_700Bold" },
   sessionRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
   sessionDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
   sessionInfo: { flex: 1 },
@@ -341,14 +267,9 @@ const styles = StyleSheet.create({
   sessionDuration: { fontSize: 13, fontFamily: "Inter_700Bold" },
   typeBadge: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
   typeText: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  emptyBox: {
-    alignItems: "center",
-    paddingVertical: 48,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 8,
-    borderStyle: "dashed",
-  },
+  emptyBox: { alignItems: "center", paddingVertical: 42, borderRadius: 14, borderWidth: 1, gap: 8, borderStyle: "dashed" },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold", marginTop: 4 },
   emptyHint: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 24 },
+  emptyBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, marginTop: 6 },
+  emptyBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });

@@ -27,7 +27,8 @@ export default function PomodoroDisplay({
   const colors = useColors();
   const isWork = pomodoro.phase === "work";
   const progressColor = isWork ? colors.primary : colors.success;
-  const progress = Math.min(1, 1 - pomodoro.remainingSeconds / pomodoro.totalSeconds);
+  const totalSeconds = (isWork ? pomodoro.workMinutes : pomodoro.breakMinutes) * 60;
+  const progress = Math.min(1, 1 - pomodoro.remainingSeconds / totalSeconds);
 
   const handlePauseResume = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

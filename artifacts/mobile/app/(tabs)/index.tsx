@@ -75,17 +75,40 @@ export default function RoutineScreen() {
   // Carry-forward prompt
   React.useEffect(() => {
     if (carryForwardTasks.length > 0) {
+      const decideOneByOne = (index = 0) => {
+        const task = carryForwardTasks[index];
+        if (!task) return;
+        Alert.alert(
+          "Move unfinished task?",
+          task.name,
+          [
+            { text: "Delete", style: "destructive", onPress: () => {
+              resolveCarryForward("delete", [task.id]);
+              decideOneByOne(index + 1);
+            } },
+            { text: "Keep hidden", style: "cancel", onPress: () => {
+              resolveCarryForward("keep", [task.id]);
+              decideOneByOne(index + 1);
+            } },
+            { text: "Move", onPress: () => {
+              resolveCarryForward("move", [task.id]);
+              decideOneByOne(index + 1);
+            } },
+          ]
+        );
+      };
+
       Alert.alert(
         "Unfinished Tasks",
         `You have ${carryForwardTasks.length} unfinished task${carryForwardTasks.length > 1 ? "s" : ""} from yesterday. What would you like to do?`,
         [
           { text: "Delete All", style: "destructive", onPress: () => resolveCarryForward("delete") },
           { text: "Move to Today", onPress: () => resolveCarryForward("move") },
-          { text: "Keep (hidden)", style: "cancel", onPress: () => resolveCarryForward("keep") },
+          { text: "Decide", onPress: () => decideOneByOne() },
         ]
       );
     }
-  }, [carryForwardTasks.length]);
+  }, [carryForwardTasks, resolveCarryForward]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -165,6 +188,7 @@ export default function RoutineScreen() {
                 id={task.id}
                 name={task.name}
                 deadline={task.deadline}
+                reminderOffsetMinutes={task.reminderOffsetMinutes}
                 category={task.category}
                 isDone={task.isDone}
                 onToggle={() => toggleDailyTask(task.id)}
@@ -212,6 +236,7 @@ export default function RoutineScreen() {
                 id={task.id}
                 name={task.name}
                 deadline={task.deadline}
+                reminderOffsetMinutes={task.reminderOffsetMinutes}
                 isDone={task.isDone}
                 onToggle={() => toggleTempTask(task.id)}
                 onDelete={() => deleteTempTask(task.id)}
@@ -235,13 +260,14 @@ export default function RoutineScreen() {
         visible={editingTask !== null}
         initialName={editingTask?.task.name ?? ""}
         initialDeadline={editingTask?.task.deadline}
+        initialReminderOffsetMinutes={editingTask?.task.reminderOffsetMinutes ?? null}
         onClose={() => setEditingTask(null)}
-        onSave={(name, deadline) => {
+        onSave={(name, deadline, reminderOffsetMinutes) => {
           if (!editingTask) return;
           if (editingTask.type === "daily") {
-            editDailyTask(editingTask.task.id, { name, deadline });
+            editDailyTask(editingTask.task.id, { name, deadline, reminderOffsetMinutes });
           } else {
-            editTempTask(editingTask.task.id, { name, deadline });
+            editTempTask(editingTask.task.id, { name, deadline, reminderOffsetMinutes });
           }
           setEditingTask(null);
         }}

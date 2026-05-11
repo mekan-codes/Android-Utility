@@ -12,19 +12,30 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { ReminderOffsetMinutes } from "@/utils/notifications";
 
 interface EditTaskModalProps {
   visible: boolean;
   initialName: string;
   initialDeadline?: string;
+  initialReminderOffsetMinutes?: ReminderOffsetMinutes;
   onClose: () => void;
-  onSave: (name: string, deadline?: string) => void;
+  onSave: (name: string, deadline?: string, reminderOffsetMinutes?: ReminderOffsetMinutes) => void;
 }
+
+const REMINDER_OPTIONS: { label: string; value: ReminderOffsetMinutes }[] = [
+  { label: "None", value: null },
+  { label: "At time", value: 0 },
+  { label: "5m", value: 5 },
+  { label: "10m", value: 10 },
+  { label: "30m", value: 30 },
+];
 
 export default function EditTaskModal({
   visible,
   initialName,
   initialDeadline,
+  initialReminderOffsetMinutes,
   onClose,
   onSave,
 }: EditTaskModalProps) {
@@ -32,18 +43,22 @@ export default function EditTaskModal({
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(initialName);
   const [deadline, setDeadline] = useState(initialDeadline ?? "");
+  const [reminderOffsetMinutes, setReminderOffsetMinutes] =
+    useState<ReminderOffsetMinutes>(initialReminderOffsetMinutes ?? null);
 
   useEffect(() => {
     if (visible) {
       setName(initialName);
       setDeadline(initialDeadline ?? "");
+      setReminderOffsetMinutes(initialReminderOffsetMinutes ?? null);
     }
-  }, [visible, initialName, initialDeadline]);
+  }, [visible, initialName, initialDeadline, initialReminderOffsetMinutes]);
 
   const handleSave = () => {
     const trimmed = name.trim();
+    const deadlineValue = deadline.trim();
     if (!trimmed) return;
-    onSave(trimmed, deadline.trim() || undefined);
+    onSave(trimmed, deadlineValue || undefined, deadlineValue ? reminderOffsetMinutes : null);
     onClose();
   };
 
@@ -52,11 +67,11 @@ export default function EditTaskModal({
       <Pressable style={styles.overlay} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kavWrapper}>
           <Pressable style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.handle} />
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
             <Text style={[styles.title, { color: colors.foreground }]}>Edit Task</Text>
 
             <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: 10 }]}
+              style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
               placeholder="Task name"
               placeholderTextColor={colors.mutedForeground}
               value={name}
@@ -66,8 +81,8 @@ export default function EditTaskModal({
             />
 
             <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: 10 }]}
-              placeholder="Deadline (e.g. 22:00) — optional"
+              style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
+              placeholder="Deadline, optional (22:00)"
               placeholderTextColor={colors.mutedForeground}
               value={deadline}
               onChangeText={setDeadline}
@@ -75,8 +90,32 @@ export default function EditTaskModal({
               onSubmitEditing={handleSave}
             />
 
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Reminder</Text>
+            <View style={styles.reminderRow}>
+              {REMINDER_OPTIONS.map((option) => {
+                const active = reminderOffsetMinutes === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.label}
+                    onPress={() => setReminderOffsetMinutes(option.value)}
+                    style={[
+                      styles.reminderChip,
+                      {
+                        backgroundColor: active ? colors.primary : colors.muted,
+                        borderColor: active ? colors.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.reminderChipText, { color: active ? "#fff" : colors.mutedForeground }]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
             <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: name.trim() ? colors.primary : colors.muted, borderRadius: 12 }]}
+              style={[styles.saveBtn, { backgroundColor: name.trim() ? colors.primary : colors.muted }]}
               onPress={handleSave}
               disabled={!name.trim()}
             >
@@ -94,10 +133,31 @@ export default function EditTaskModal({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
   kavWrapper: { justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingHorizontal: 20, gap: 12 },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#D1D5DB", alignSelf: "center", marginBottom: 8 },
+  sheet: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 8 },
   title: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  input: { paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: "Inter_400Regular" },
-  saveBtn: { paddingVertical: 15, alignItems: "center", marginTop: 4 },
+  input: {
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderRadius: 10,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+  },
+  label: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  reminderRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  reminderChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1 },
+  reminderChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  saveBtn: { paddingVertical: 15, alignItems: "center", borderRadius: 12, marginTop: 4 },
   saveBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
 });

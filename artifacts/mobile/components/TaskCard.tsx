@@ -9,6 +9,7 @@ interface TaskCardProps {
   id: string;
   name: string;
   deadline?: string;
+  reminderOffsetMinutes?: number | null;
   category?: string;
   isDone: boolean;
   onToggle: () => void;
@@ -20,13 +21,19 @@ interface TaskCardProps {
 
 function deadlineLabel(deadline: string, status: DeadlineStatus): string {
   if (status === "overdue") return `missed ${deadline}`;
-  if (status === "due_soon") return `due soon · ${deadline}`;
+  if (status === "due_soon") return `due soon - ${deadline}`;
   return `before ${deadline}`;
+}
+
+function reminderLabel(minutes?: number | null): string | null {
+  if (minutes === null || minutes === undefined) return null;
+  return minutes === 0 ? "at time" : `${minutes}m before`;
 }
 
 export default function TaskCard({
   name,
   deadline,
+  reminderOffsetMinutes,
   category,
   isDone,
   onToggle,
@@ -37,6 +44,7 @@ export default function TaskCard({
 }: TaskCardProps) {
   const colors = useColors();
   const dlStatus = getDeadlineStatus(deadline, isDone);
+  const reminder = reminderLabel(reminderOffsetMinutes);
 
   const deadlineBgColor =
     dlStatus === "overdue"
@@ -64,12 +72,8 @@ export default function TaskCard({
       style?: "destructive" | "cancel" | "default";
     }[] = [{ text: "Cancel", style: "cancel" }];
 
-    if (onEdit) {
-      options.push({ text: "Edit", onPress: onEdit });
-    }
-    if (type === "temp" && onMoveToTomorrow) {
-      options.push({ text: "Move to Tomorrow", onPress: onMoveToTomorrow });
-    }
+    if (onEdit) options.push({ text: "Edit", onPress: onEdit });
+    if (type === "temp" && onMoveToTomorrow) options.push({ text: "Move to Tomorrow", onPress: onMoveToTomorrow });
     options.push({ text: "Delete", style: "destructive", onPress: onDelete });
 
     Alert.alert(name, undefined, options);
@@ -79,13 +83,12 @@ export default function TaskCard({
     <TouchableOpacity
       onPress={handleToggle}
       onLongPress={handleLongPress}
-      activeOpacity={0.7}
+      activeOpacity={0.75}
       style={[
         styles.card,
         {
           backgroundColor: isDone ? colors.muted : colors.card,
           borderColor: isDone ? colors.border : dlStatus === "overdue" ? colors.destructive + "40" : colors.border,
-          borderRadius: 12,
         },
       ]}
     >
@@ -114,20 +117,20 @@ export default function TaskCard({
         >
           {name}
         </Text>
-        {(deadline || category) ? (
+        {deadline || category || reminder ? (
           <View style={styles.metaRow}>
-            {deadline && !isDone ? (
-              <View style={[styles.badge, { backgroundColor: deadlineBgColor }]}>
-                <Feather name="clock" size={10} color={deadlineTextColor} />
-                <Text style={[styles.badgeText, { color: deadlineTextColor }]}>
-                  {deadlineLabel(deadline, dlStatus)}
+            {deadline ? (
+              <View style={[styles.badge, { backgroundColor: isDone ? colors.muted : deadlineBgColor }]}>
+                <Feather name="clock" size={10} color={isDone ? colors.mutedForeground : deadlineTextColor} />
+                <Text style={[styles.badgeText, { color: isDone ? colors.mutedForeground : deadlineTextColor }]}>
+                  {isDone ? deadline : deadlineLabel(deadline, dlStatus)}
                 </Text>
               </View>
-            ) : deadline && isDone ? (
-              <View style={[styles.badge, { backgroundColor: colors.muted }]}>
-                <Text style={[styles.badgeText, { color: colors.mutedForeground }]}>
-                  {deadline}
-                </Text>
+            ) : null}
+            {reminder ? (
+              <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
+                <Feather name="bell" size={10} color={colors.primary} />
+                <Text style={[styles.badgeText, { color: colors.primary }]}>{reminder}</Text>
               </View>
             ) : null}
             {category ? (
@@ -156,6 +159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: 8,
     borderWidth: 1,
+    borderRadius: 12,
     gap: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },

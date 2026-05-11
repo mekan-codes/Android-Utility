@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -41,6 +41,12 @@ export default function ManualSessionModal({
   const [date, setDate] = useState(getTodayStr());
   const [note, setNote] = useState("");
 
+  useEffect(() => {
+    if (visible) {
+      setSelectedSubjectId(defaultSubjectId ?? subjects[0]?.id ?? "");
+    }
+  }, [defaultSubjectId, subjects, visible]);
+
   const reset = () => {
     setSelectedSubjectId(defaultSubjectId ?? subjects[0]?.id ?? "");
     setDurationStr("");
@@ -73,7 +79,11 @@ export default function ManualSessionModal({
             {/* Subject Selector */}
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Subject</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subjectRow}>
-              {subjects.map((s) => (
+              {subjects.length === 0 ? (
+                <Text style={[styles.emptySubjectText, { color: colors.mutedForeground }]}>
+                  Add a subject first.
+                </Text>
+              ) : subjects.map((s) => (
                 <TouchableOpacity
                   key={s.id}
                   onPress={() => setSelectedSubjectId(s.id)}
@@ -158,6 +168,7 @@ const styles = StyleSheet.create({
   subjectRow: { marginBottom: 4 },
   subjectChip: { paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 2 },
   subjectChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  emptySubjectText: { fontSize: 13, fontFamily: "Inter_500Medium", paddingVertical: 8 },
   input: { paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: "Inter_400Regular" },
   addBtn: { paddingVertical: 15, alignItems: "center", marginTop: 6 },
   addBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },

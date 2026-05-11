@@ -5,7 +5,6 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
@@ -19,8 +18,6 @@ import { RoutineProvider } from "@/context/RoutineContext";
 import { StudyProvider } from "@/context/StudyContext";
 
 SplashScreen.preventAutoHideAsync();
-
-const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -42,26 +39,24 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <ThemeProvider>
-          <QueryClientProvider client={queryClient}>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RoutineProvider>
-                  <StudyProvider>
-                    <Stack screenOptions={{ headerShown: false }}>
-                      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                      <Stack.Screen
-                        name="subject/[id]"
-                        options={{
-                          headerShown: false,
-                          animation: "slide_from_right",
-                        }}
-                      />
-                    </Stack>
-                  </StudyProvider>
-                </RoutineProvider>
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </QueryClientProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <KeyboardProvider>
+              <RoutineProvider>
+                <StudyProvider>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen
+                      name="subject/[id]"
+                      options={{
+                        headerShown: false,
+                        animation: "slide_from_right",
+                      }}
+                    />
+                  </Stack>
+                </StudyProvider>
+              </RoutineProvider>
+            </KeyboardProvider>
+          </GestureHandlerRootView>
         </ThemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
