@@ -25,17 +25,13 @@ export default function PomodoroDisplay({
   onStop,
 }: PomodoroDisplayProps) {
   const colors = useColors();
-
-  const progress = 1 - pomodoro.remainingSeconds / pomodoro.totalSeconds;
-  const progressColor = pomodoro.phase === "work" ? colors.primary : colors.success;
+  const isWork = pomodoro.phase === "work";
+  const progressColor = isWork ? colors.primary : colors.success;
+  const progress = Math.min(1, 1 - pomodoro.remainingSeconds / pomodoro.totalSeconds);
 
   const handlePauseResume = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (pomodoro.isRunning) {
-      onPause();
-    } else {
-      onResume();
-    }
+    if (pomodoro.isRunning) onPause(); else onResume();
   };
 
   const handleStop = () => {
@@ -47,76 +43,56 @@ export default function PomodoroDisplay({
     <View
       style={[
         styles.container,
-        {
-          backgroundColor: colors.card,
-          borderColor: progressColor + "30",
-          borderRadius: 20,
-        },
+        { backgroundColor: colors.card, borderColor: progressColor + "30", borderRadius: 20 },
       ]}
     >
       <View style={styles.progressBarBg}>
         <View
           style={[
             styles.progressBarFill,
-            {
-              width: `${Math.min(100, progress * 100)}%` as `${number}%`,
-              backgroundColor: progressColor,
-            },
+            { width: `${Math.min(100, progress * 100)}%` as `${number}%`, backgroundColor: progressColor },
           ]}
         />
       </View>
 
       <View style={styles.inner}>
-        <View style={styles.labelRow}>
+        <View style={styles.topRow}>
           <View style={[styles.phaseBadge, { backgroundColor: progressColor + "20" }]}>
             <Text style={[styles.phaseText, { color: progressColor }]}>
-              {pomodoro.phase === "work" ? "Focus" : "Break"}
+              {isWork ? "Focus" : "Break"}
             </Text>
           </View>
-          <Text style={[styles.subjectName, { color: colors.mutedForeground }]}>
-            {pomodoro.subjectName}
-          </Text>
+          <View style={[styles.cycleBadge, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.cycleText, { color: colors.mutedForeground }]}>
+              Cycle {pomodoro.currentCycle}/{pomodoro.totalCycles}
+            </Text>
+          </View>
         </View>
+
+        <Text style={[styles.subjectName, { color: colors.mutedForeground }]}>
+          {pomodoro.subjectName}
+        </Text>
 
         <Text style={[styles.timer, { color: colors.foreground }]}>
           {formatSeconds(pomodoro.remainingSeconds)}
         </Text>
 
         {!pomodoro.isRunning && (
-          <Text style={[styles.pausedLabel, { color: colors.mutedForeground }]}>
-            Paused
-          </Text>
+          <Text style={[styles.pausedLabel, { color: colors.mutedForeground }]}>Paused</Text>
         )}
 
         <View style={styles.controls}>
           <TouchableOpacity
             onPress={handleStop}
-            style={[
-              styles.controlBtn,
-              {
-                backgroundColor: colors.destructive + "15",
-                borderRadius: 12,
-              },
-            ]}
+            style={[styles.controlBtn, { backgroundColor: colors.destructive + "15", borderRadius: 12 }]}
           >
             <Feather name="square" size={20} color={colors.destructive} />
           </TouchableOpacity>
-
           <TouchableOpacity
             onPress={handlePauseResume}
-            style={[
-              styles.mainBtn,
-              {
-                backgroundColor: progressColor,
-                borderRadius: 16,
-              },
-            ]}
+            style={[styles.mainBtn, { backgroundColor: progressColor, borderRadius: 16 }]}
           >
-            <Feather
-              name={pomodoro.isRunning ? "pause" : "play"}
-              size={26}
-              color="#fff"
-            />
+            <Feather name={pomodoro.isRunning ? "pause" : "play"} size={26} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -135,67 +111,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  progressBarBg: {
-    height: 4,
-    backgroundColor: "#E5E7F0",
-    width: "100%",
-  },
-  progressBarFill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  inner: {
-    padding: 20,
-    alignItems: "center",
-    gap: 8,
-  },
-  labelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  phaseBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  phaseText: {
-    fontSize: 12,
-    fontFamily: "Inter_700Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  subjectName: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
-  timer: {
-    fontSize: 56,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -2,
-    lineHeight: 64,
-  },
-  pausedLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-    marginTop: -4,
-  },
-  controls: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginTop: 8,
-  },
-  controlBtn: {
-    width: 48,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mainBtn: {
-    width: 70,
-    height: 70,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  progressBarBg: { height: 4, backgroundColor: "#E5E7F0", width: "100%" },
+  progressBarFill: { height: 4, borderRadius: 2 },
+  inner: { padding: 20, alignItems: "center", gap: 6 },
+  topRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  phaseBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
+  phaseText: { fontSize: 12, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.5 },
+  cycleBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  cycleText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  subjectName: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  timer: { fontSize: 56, fontFamily: "Inter_700Bold", letterSpacing: -2, lineHeight: 64 },
+  pausedLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  controls: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 8 },
+  controlBtn: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  mainBtn: { width: 70, height: 70, alignItems: "center", justifyContent: "center" },
 });
