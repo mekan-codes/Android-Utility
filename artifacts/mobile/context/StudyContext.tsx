@@ -360,13 +360,12 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     const filtered = getSessionsForFilter(filter);
     if (filtered.length === 0) return 0;
     const total = filtered.reduce((sum, s) => sum + s.durationMinutes, 0);
-    const days = filter === "today" ? 1
-      : filter === "7days" ? 7
-      : filter === "30days" ? 30
-      : filter === "year" ? 365
-      : Math.max(1, Math.ceil((Date.now() - new Date(sessions[0]?.completedAt ?? Date.now()).getTime()) / 86400000));
-    return Math.round(total / days);
-  }, [getSessionsForFilter, sessions]);
+    if (filter === "today") return total;
+    const activeDates = new Set(filtered.map((s) => s.date));
+    const activeStudyDays = activeDates.size;
+    if (activeStudyDays === 0) return 0;
+    return Math.round(total / activeStudyDays);
+  }, [getSessionsForFilter]);
 
   const getBestSubjectForFilter = useCallback((filter: StatFilter): Subject | null => {
     if (subjects.length === 0) return null;

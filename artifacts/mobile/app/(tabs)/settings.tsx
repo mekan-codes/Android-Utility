@@ -1,25 +1,30 @@
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
   Alert,
   Platform,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoutine } from "@/context/RoutineContext";
 import { useStudy } from "@/context/StudyContext";
+import { useTheme, ThemePreference } from "@/context/ThemeContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { themePreference, setThemePreference } = useTheme();
   const {
     settings,
     updateSettings,
@@ -42,6 +47,8 @@ export default function SettingsScreen() {
   const [workInput, setWorkInput] = useState(String(settings.workMinutes));
   const [breakInput, setBreakInput] = useState(String(settings.breakMinutes));
   const [cyclesInput, setCyclesInput] = useState(String(settings.cycles));
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : 0;
@@ -68,56 +75,141 @@ export default function SettingsScreen() {
   };
 
   const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
       const routineData = exportRoutineData();
       const studyData = exportStudyData();
       const exportObj = {
         version: 1,
         exportedAt: new Date().toISOString(),
-        tasks: routineData,
-        subjects: (studyData as Record<string, unknown>).subjects,
-        studySessions: (studyData as Record<string, unknown>).sessions,
-        pomodoroSettings: (studyData as Record<string, unknown>).settings,
+        tasks: (routineData as Record<string, unknown>).dailyTasks ?? [],
+        tempTasks: (routineData as Record<string, unknown>).tempTasks ?? [],
+        subjects: (studyData as Record<string, unknown>).subjects ?? [],
+        studySessions: (studyData as Record<string, unknown>).sessions ?? [],
+        pomodoroSettings: (studyData as Record<string, unknown>).settings ?? {},
+        settings: { theme: themePreference },
+        items: [],
+        checklists: [],
       };
       const json = JSON.stringify(exportObj, null, 2);
       const now = new Date().toISOString().split("T")[0] as string;
-      setLastBackupDate(now);
 
       if (Platform.OS === "web") {
-        Alert.alert(
-          "Backup Ready",
-          "Copy the JSON below to save your data:\n\n" + json.substring(0, 300) + "..."
-        );
+        Alert.alert("Backup Ready", "Web export: Copy the JSON below.\n\n" + json.substring(0, 200) + "...");
       } else {
-        await Share.share({
-          message: json,
-          title: "resetflow_backup.json",
-        });
+        const fileName = `resetflow_backup_${now}.json`;
+        const fileUri = FileSystem.cacheDirectory + fileName;
+        await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: "application/json",
+            dialogTitle: "Save Backup",
+            UTI: "public.json",
+          });
+          setLastBackupDate(now);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Alert.alert("Error", "Sharing is not available on this device.");
+        }
       }
     } catch {
-      Alert.alert("Error", "Export failed.");
+      Alert.alert("Export Failed", "Could not export backup. Please try again.");
+    } finally {
+      setExporting(false);
     }
   };
 
-  const handleImport = () => {
-    Alert.alert(
-      "Import Backup",
-      "Paste your backup JSON below. This will replace your current data.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Enter JSON",
-          onPress: () => {
-            // On mobile, we show instructions since we can't easily paste JSON
-            Alert.alert(
-              "Import Instructions",
-              "To import on Android:\n\n1. Export your backup from another device\n2. Copy the full JSON text\n3. Contact support to enable import\n\nFor now, use the export feature to back up your data.",
-              [{ text: "OK" }]
-            );
+  const handleImport = async () => {
+    if (importing) return;
+    setImporting(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "application/json",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setImporting(false);
+        return;
+      }
+
+      const asset = result.assets[0];
+      if (!asset) {
+        setImporting(false);
+        return;
+      }
+      const fileUri = asset.uri;
+      const raw = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        Alert.alert("Invalid File", "The selected file is not valid JSON.");
+        setImporting(false);
+        return;
+      }
+
+      if (!parsed.version) {
+        Alert.alert("Invalid Backup", "This file does not appear to be a ResetFlow backup.");
+        setImporting(false);
+        return;
+      }
+
+      const taskCount = Array.isArray(parsed.tasks) ? parsed.tasks.length : 0;
+      const subjectCount = Array.isArray(parsed.subjects) ? parsed.subjects.length : 0;
+      const sessionCount = Array.isArray(parsed.studySessions) ? parsed.studySessions.length : 0;
+      const hasSettings = !!parsed.pomodoroSettings || !!parsed.settings;
+
+      const preview =
+        `Tasks: ${taskCount}\n` +
+        `Subjects: ${subjectCount}\n` +
+        `Study sessions: ${sessionCount}\n` +
+        `Settings: ${hasSettings ? "Found" : "Not found"}`;
+
+      setImporting(false);
+
+      Alert.alert(
+        "Import Preview",
+        preview + "\n\nThis will replace your current app data. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Import",
+            onPress: async () => {
+              try {
+                if (Array.isArray(parsed.tasks) || Array.isArray(parsed.tempTasks)) {
+                  await importRoutineData({
+                    dailyTasks: Array.isArray(parsed.tasks) ? parsed.tasks : undefined,
+                    tempTasks: Array.isArray(parsed.tempTasks) ? parsed.tempTasks : undefined,
+                  });
+                }
+                await importStudyData({
+                  subjects: Array.isArray(parsed.subjects) ? parsed.subjects : undefined,
+                  sessions: Array.isArray(parsed.studySessions) ? parsed.studySessions : undefined,
+                  settings: parsed.pomodoroSettings as { workMinutes: number; breakMinutes: number; cycles: number } | undefined,
+                });
+                if (parsed.settings && typeof parsed.settings === "object") {
+                  const s = parsed.settings as Record<string, unknown>;
+                  if (s.theme === "light" || s.theme === "dark" || s.theme === "system") {
+                    setThemePreference(s.theme as ThemePreference);
+                  }
+                }
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert("Imported", "Your backup has been restored successfully.");
+              } catch {
+                Alert.alert("Import Failed", "Something went wrong during import. Your data was not changed.");
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch {
+      Alert.alert("Import Failed", "Could not read the selected file.");
+      setImporting(false);
+    }
   };
 
   const handleResetAll = () => {
@@ -150,6 +242,12 @@ export default function SettingsScreen() {
       })()
     : "Never";
 
+  const THEME_OPTIONS: { value: ThemePreference; label: string; icon: string }[] = [
+    { value: "system", label: "System", icon: "smartphone" },
+    { value: "light", label: "Light", icon: "sun" },
+    { value: "dark", label: "Moon", icon: "moon" },
+  ];
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
@@ -161,9 +259,56 @@ export default function SettingsScreen() {
       >
         <Text style={[styles.headline, { color: colors.foreground }]}>Settings</Text>
 
+        {/* Appearance */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
+            <Feather name="eye" size={16} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Appearance</Text>
+          </View>
+          <View style={styles.themeRow}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Theme</Text>
+            <View style={styles.themeOptions}>
+              {THEME_OPTIONS.map((opt) => {
+                const active = themePreference === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    onPress={() => {
+                      setThemePreference(opt.value);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    style={[
+                      styles.themeBtn,
+                      {
+                        backgroundColor: active ? colors.primary : colors.muted,
+                        borderColor: active ? colors.primary : colors.border,
+                        borderRadius: 10,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name={opt.icon as "smartphone" | "sun" | "moon"}
+                      size={14}
+                      color={active ? "#fff" : colors.mutedForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.themeBtnText,
+                        { color: active ? "#fff" : colors.mutedForeground },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
         {/* Pomodoro Timer */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
             <Feather name="clock" size={16} color={colors.primary} />
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Pomodoro Timer</Text>
           </View>
@@ -226,64 +371,31 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Data Summary */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
-            <Feather name="database" size={16} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Your Data</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Daily Tasks</Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{dailyTasks.length}</Text>
-          </View>
-          <View style={[styles.separator, { backgroundColor: colors.border }]} />
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Subjects</Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{subjects.length}</Text>
-          </View>
-          <View style={[styles.separator, { backgroundColor: colors.border }]} />
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Study Sessions</Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{sessions.length}</Text>
-          </View>
-          <View style={[styles.separator, { backgroundColor: colors.border }]} />
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Last Backup</Text>
-            <Text
-              style={[
-                styles.rowValue,
-                { color: lastBackupDate ? colors.success : colors.warning },
-              ]}
-            >
-              {lastBackupLabel}
-            </Text>
-          </View>
-        </View>
-
         {/* Backup */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
             <Feather name="archive" size={16} color={colors.primary} />
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Backup</Text>
           </View>
 
-          <TouchableOpacity onPress={handleExport} style={styles.row} activeOpacity={0.7}>
+          <TouchableOpacity onPress={handleExport} style={styles.row} activeOpacity={0.7} disabled={exporting}>
             <View style={styles.rowLeft}>
-              <Feather name="share" size={16} color={colors.primary} />
+              <Feather name="upload" size={16} color={colors.primary} />
               <View>
                 <Text style={[styles.rowLabel, { color: colors.foreground }]}>Export Backup</Text>
                 <Text style={[styles.rowSubLabel, { color: colors.mutedForeground }]}>
-                  Share resetflow_backup.json
+                  Save resetflow_backup_YYYY-MM-DD.json
                 </Text>
               </View>
             </View>
-            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            {exporting
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : <Feather name="chevron-right" size={16} color={colors.mutedForeground} />}
           </TouchableOpacity>
 
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
-          <TouchableOpacity onPress={handleImport} style={styles.row} activeOpacity={0.7}>
+          <TouchableOpacity onPress={handleImport} style={styles.row} activeOpacity={0.7} disabled={importing}>
             <View style={styles.rowLeft}>
               <Feather name="download" size={16} color={colors.primary} />
               <View>
@@ -293,7 +405,9 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            {importing
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : <Feather name="chevron-right" size={16} color={colors.mutedForeground} />}
           </TouchableOpacity>
 
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
@@ -306,9 +420,49 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Storage */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
+            <Feather name="database" size={16} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Storage</Text>
+          </View>
+
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Type</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>Local only</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Tasks</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{dailyTasks.length + tempTasks.length}</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Subjects</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{subjects.length}</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Study sessions</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{sessions.length}</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Last backup</Text>
+            <Text
+              style={[
+                styles.rowValue,
+                { color: lastBackupDate ? colors.success : colors.warning },
+              ]}
+            >
+              {lastBackupLabel}
+            </Text>
+          </View>
+        </View>
+
         {/* About */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
             <Feather name="info" size={16} color={colors.primary} />
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About</Text>
           </View>
@@ -321,21 +475,11 @@ export default function SettingsScreen() {
             <Text style={[styles.rowLabel, { color: colors.foreground }]}>Version</Text>
             <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>1.0.0</Text>
           </View>
-          <View style={[styles.separator, { backgroundColor: colors.border }]} />
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Storage</Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>Local only</Text>
-          </View>
-          <View style={[styles.separator, { backgroundColor: colors.border }]} />
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Daily Reset</Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>Midnight</Text>
-          </View>
         </View>
 
         {/* Danger Zone */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.destructive + "30" }]}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
             <Feather name="alert-triangle" size={16} color={colors.destructive} />
             <Text style={[styles.sectionTitle, { color: colors.destructive }]}>Danger Zone</Text>
           </View>
@@ -375,9 +519,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E7F0",
   },
   sectionTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  themeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  themeOptions: { flexDirection: "row", gap: 6 },
+  themeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+  },
+  themeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   row: {
     flexDirection: "row",
     alignItems: "center",
