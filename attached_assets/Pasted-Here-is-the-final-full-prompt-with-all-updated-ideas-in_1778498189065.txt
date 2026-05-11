@@ -1,0 +1,872 @@
+Here is the **final full prompt** with all updated ideas included.
+
+```text
+Build a minimal, offline-first mobile app called ResetFlow.
+
+The app is a personal daily routine + study tracking app. It must be fast, smooth, practical, and not overloaded. It should not become Notion, Todoist, Quizlet, or a heavy productivity app.
+
+The app must work fully offline:
+- no account
+- no cloud
+- no internet dependency
+- local storage only
+- export/import data anytime for moving to another device
+
+Main goal:
+Help me not forget daily routines, temporary one-day tasks, and track study time separately using Pomodoro.
+
+Important rule:
+Daily routine tracking and study tracking must stay separate.
+
+Bottom navigation:
+- Routine
+- Study
+- Stats
+- Settings
+
+Optional later:
+- Items / Checklists
+
+The app must feel minimal, modern, and smooth. Avoid lag, excessive animations, heavy charts, too many screens, and unnecessary features.
+
+==================================================
+CORE MODULE 1: ROUTINE
+==================================================
+
+The Routine page is the main page.
+
+It should show:
+
+Monday, May 11
+Today
+
+Progress badge:
+0/0 done or 4/8 done
+
+Sections:
+1. Daily Routine
+2. Today’s Tasks
+
+Daily Routine:
+These are default daily tasks.
+They repeat every day.
+Their done status resets every day.
+The task itself remains permanently unless deleted.
+
+Examples:
+- Drink water
+- Shower
+- Clean desk
+- Prepare backpack
+- Check email
+- Sleep before 12:00
+- Take vitamins
+- Do laundry
+- Review tomorrow’s schedule
+
+Each daily task should support:
+- name
+- optional deadline/time limit
+- done / not done
+- category, optional
+- created date
+- edit
+- delete
+
+At the start of a new day:
+- all daily tasks become not done again
+
+Today’s Tasks:
+These are temporary / variable tasks.
+They are added for today only.
+They disappear after the day ends unless moved to tomorrow.
+
+Examples:
+- Print visa document
+- Ask teacher about assignment
+- Buy shampoo
+- Send email
+- Charge power bank
+- Submit homework
+
+Each temporary task should support:
+- name
+- optional deadline/time limit
+- done / not done
+- created date
+- edit
+- delete
+
+At the start of a new day:
+- completed temporary tasks are removed
+- unfinished temporary tasks should trigger an optional prompt:
+  “Move unfinished tasks to today?”
+  Options:
+  - Move to today
+  - Delete
+  - Decide one by one
+
+For MVP, it is acceptable to simply remove old temporary tasks, but the better implementation is the carry-to-tomorrow prompt.
+
+Routine page empty states:
+If no daily routine tasks:
+“No daily tasks yet”
+“Add tasks that repeat every day”
+Button: Add routine task
+
+If no temporary tasks:
+“No extra tasks today”
+“These disappear at end of day”
+Button: Add task
+
+Quick-add behavior:
+Adding a task should require very few taps.
+
+For Daily Routine + button:
+- task name
+- optional deadline
+- save
+
+For Today’s Tasks + button:
+- task name
+- optional deadline
+- save
+
+Task display example:
+[ ] Drink water       before 22:00
+[ ] Shower            before 23:00
+[✓] Clean desk        Done
+
+Task interaction:
+- one tap checkbox/tick marks task as Done
+- done tasks become slightly faded or move lower
+- action should feel instant and satisfying
+- avoid slow animations
+
+Deadline behavior:
+Tasks with deadline should show:
+- before 22:00
+- due soon
+- missed
+
+Sorting:
+Routine tasks should be sorted simply:
+1. overdue/missed
+2. due soon
+3. normal unfinished
+4. done
+
+Top progress:
+Show total completed tasks:
+4/8 done
+
+Optional small progress bar:
+Today
+4/8 done
+[████░░░░]
+
+==================================================
+CORE MODULE 2: STUDY
+==================================================
+
+Study must be completely separate from Routine.
+
+The Study page tracks subjects, Pomodoro sessions, and study time.
+
+Study main screen:
+Header:
+Study Planner or Study
+
+Top summary:
+Today: 1h 40m
+Goal: 3h
+Remaining: 1h 20m
+
+Include a compact date strip:
+Wed 6, Thu 7, Fri 8, Sat 9, Sun 10, Mon 11
+
+Selected day should be highlighted.
+
+Subject cards:
+Each subject card has:
+- colored circular play/start button
+- subject name
+- today’s studied time
+- weekly studied time
+- optional progress bar
+- tap card to open subject details
+- tap play button to start Pomodoro
+
+Example subject cards:
+▶ Calculus 2
+Today: 45m
+Week: 4h 20m
+
+▶ SAT
+Today: 0m
+Week: 2h 10m
+
+▶ Gen Bio 2
+Today: 30m
+Week: 3h 00m
+
+▶ Korean 3
+Today: 0m
+Week: 1h 30m
+
+▶ Data Structures
+Today: 25m
+Week: 2h 10m
+
+▶ Book Reading
+Today: 10m
+Week: 1h 00m
+
+Subjects should support:
+- add subject
+- rename subject
+- delete/archive subject
+- choose color
+- optional daily goal
+- optional weekly goal
+
+Long-press or menu on subject card:
+- Start 25 min
+- Start 50 min
+- Add manual time
+- View stats
+- Edit subject
+
+==================================================
+POMODORO TIMER
+==================================================
+
+The app needs a Pomodoro timer inside the Study module.
+
+User can set:
+- study time, example 25 minutes
+- break time, example 5 minutes
+- cycles, example 4
+- selected subject
+
+Timer screen example:
+
+Calculus 2
+
+25:00
+Study session
+
+Cycle 1 / 4
+Mode: Study
+Next: 5 min break
+
+[Pause] [Stop]
+
+Important:
+Only actual study time counts toward totals.
+Break time must not count as study time.
+
+When a study session finishes:
+Calculus 2 +25 minutes
+
+Timer actions:
+- start
+- pause
+- resume
+- stop
+- finish session
+- save completed study minutes
+- discard cancelled session
+- save partial session only if user confirms
+
+After session is saved:
+Show:
+Saved: Data Structures +25m
+[Undo]
+
+This undo is important in case the wrong subject/time was saved.
+
+Timer accuracy:
+The timer should not rely only on active countdown loops.
+It should use timestamps so it remains accurate if the app is minimized.
+
+==================================================
+MANUAL STUDY SESSION
+==================================================
+
+Add manual study time feature.
+
+Sometimes I study without Pomodoro.
+
+Manual entry:
++ Add Study Time
+
+Fields:
+- subject
+- duration
+- date
+- optional note
+
+Example:
+Subject: Data Structures
+Duration: 45 min
+Date: Today
+Note: solved linked list problems
+
+This should create a StudySession record exactly like Pomodoro sessions.
+
+==================================================
+SUBJECT DETAIL PAGE
+==================================================
+
+When tapping a subject, open subject detail page.
+
+Example:
+
+Data Structures
+
+Today: 25m
+7 days: 2h 10m
+30 days: 8h 40m
+Year: 50h
+All time: 71h
+
+Recent sessions:
+- May 11, 25m
+- May 10, 50m
+- May 9, 30m
+
+Actions:
+- Start Pomodoro
+- Add manual time
+- Edit subject
+- Archive subject
+
+==================================================
+CORE MODULE 3: STATS
+==================================================
+
+Stats should show useful study data clearly.
+
+Top cards should be interactive, not static.
+
+Current cards:
+Today
+This Week
+All Time
+
+Make them clickable filters.
+
+Better filters:
+- Today
+- 7 Days
+- 30 Days
+- Year
+- All Time
+
+When user taps Today:
+- selected range becomes Today
+- chart updates to today
+- subject breakdown updates to today
+
+When user taps 7 Days:
+- chart shows last 7 days
+- subject breakdown shows last 7 days
+
+When user taps 30 Days:
+- chart shows last 30 days
+- subject breakdown shows last 30 days
+
+When user taps Year:
+- chart shows this year
+- subject breakdown shows this year
+
+When user taps All Time:
+- chart shows all study data
+- subject breakdown shows all study data
+
+Selected filter should have active styling.
+
+Stats should show:
+- total studied time
+- daily average
+- best/most studied subject
+- subject breakdown
+- chart by selected range
+
+Example:
+
+Today | 7 Days | 30 Days | Year | All Time
+
+Total studied: 11h 30m
+Daily average: 1h 38m
+Best subject: Calculus 2
+
+Chart:
+Mon Tue Wed Thu Fri Sat Sun
+
+Subject breakdown:
+Calculus 2        4h 10m
+Data Structures   3h 20m
+Korean 3          2h 00m
+SAT               1h 40m
+
+The bottom subject breakdown is important.
+It should show:
+- subject name
+- color
+- studied time today
+- studied time total for selected range
+- simple progress bar
+
+A donut chart can exist, but a list is more useful and should always be shown.
+
+Stats empty state:
+If no study data:
+“No study sessions yet”
+“Start a Pomodoro session on the Study tab”
+Button: Go to Study
+
+==================================================
+CORE MODULE 4: SETTINGS
+==================================================
+
+Settings should include:
+
+Data
+[ Export Backup ]
+[ Import Backup ]
+
+Export:
+- create JSON backup file
+- filename example: resetflow_backup.json
+- user can export anytime
+
+Import:
+- choose JSON backup file
+- validate backup version
+- show confirmation before importing
+- avoid corrupting current data if import fails
+
+Import options:
+For MVP:
+- Replace current data
+
+Later:
+- Merge with current data
+
+Import confirmation example:
+“This will replace your current app data. Continue?”
+[Cancel] [Import]
+
+Settings should also show:
+- local-only storage
+- last backup date
+- number of study sessions
+- number of tasks
+- app version
+
+Backup reminder:
+Because app is offline, show:
+Last backup: Never
+or
+Last backup: 12 days ago
+[Export now]
+
+Do not show annoying reminders. Keep it inside Settings or subtle.
+
+==================================================
+OPTIONAL MODULE: ITEMS / OBJECT MEMORY
+==================================================
+
+Optional future feature.
+Do not overload MVP.
+
+Purpose:
+Remember where small physical things are.
+
+Examples:
+Passport → Dorm drawer
+Calculator → Backpack
+Power bank → Charging near bed
+USB → Laptop bag
+Printed documents → Blue folder
+
+Each item:
+- item name
+- location
+- optional note
+- last updated time
+
+This can be a small Items page later.
+
+==================================================
+OPTIONAL MODULE: CHECKLISTS
+==================================================
+
+Optional future feature, but useful.
+
+Situation checklists:
+These are reusable checklists for repeated situations.
+
+Examples:
+
+Going to class:
+[ ] phone
+[ ] wallet
+[ ] student ID
+[ ] laptop
+[ ] charger
+[ ] notebook
+
+Going to airport:
+[ ] passport
+[ ] ticket
+[ ] visa documents
+[ ] charger
+[ ] adapter
+[ ] wallet
+
+Going to shower:
+[ ] towel
+[ ] shampoo
+[ ] clothes
+
+Checklist behavior:
+- reusable
+- resets every time used
+- separate from daily tasks
+- does not affect routine progress unless user chooses
+
+==================================================
+OPTIONAL FEATURE: TASK TEMPLATES
+==================================================
+
+Task templates are for repeated temporary tasks that are not daily.
+
+Examples:
+- Visa document task
+- Teacher email task
+- Laundry task
+- Packing task
+- Exam day task
+
+User taps a template and it quickly creates a temporary task/checklist.
+
+This should be optional and not clutter the main UI.
+
+==================================================
+DESIGN STYLE
+==================================================
+
+The design should be:
+- minimal
+- modern
+- smooth
+- clean
+- fast
+- practical
+- student-focused
+
+Preferred style:
+- clean light mode or dark mode
+- soft rounded cards
+- cyan/turquoise or purple accent
+- refined typography
+- good spacing
+- simple icons
+- clear checkboxes
+- clear play buttons
+- subtle transitions only
+
+Avoid:
+- crowded UI
+- too many buttons
+- social features
+- share buttons
+- unnecessary gamification
+- complex menus
+- cloud sync
+- ads
+- heavy animations
+- heavy charts
+- complicated onboarding
+
+Study planner inspiration:
+The Study screen can be inspired by apps with:
+- subject/project cards
+- play buttons
+- date strip
+- stats filters
+- breakdown charts
+
+But rename:
+Projects → Study / Subjects
+
+Remove unnecessary:
+- Share buttons
+- social features
+
+Use clearer labels:
+- Study Planner
+- Subjects
+- Insights
+- Breakdown
+- Today
+- 7 Days
+- 30 Days
+- Year
+- Overall
+
+==================================================
+DATA MODEL
+==================================================
+
+Use efficient local data structures.
+
+Recommended entities:
+
+Task:
+- id
+- name
+- type: "daily" or "temporary"
+- deadlineMinutes, nullable
+- category, nullable
+- createdDate
+- taskDate
+- lastResetDate
+- isDone
+- completedAt, nullable
+- archived, boolean
+
+Subject:
+- id
+- name
+- color
+- archived
+- dailyGoalMinutes, optional
+- weeklyGoalMinutes, optional
+- createdAt
+
+StudySession:
+- id
+- subjectId
+- startTime
+- endTime
+- studiedMinutes
+- date
+- source: "pomodoro" or "manual"
+- completedPomodoroCycleCount, optional
+- note, optional
+- createdAt
+
+PomodoroSettings:
+- studyMinutes
+- breakMinutes
+- cycles
+
+Item, optional:
+- id
+- name
+- location
+- note
+- updatedAt
+
+Checklist, optional:
+- id
+- name
+- items
+- createdAt
+
+Settings:
+- theme
+- accentColor
+- midnightResetTime
+- defaultPomodoroSettings
+- lastOpenedDate
+- lastBackupDate
+- backupVersion
+
+Important:
+StudySession records should be stored historically.
+Do not only store total minutes.
+Totals should be calculated from sessions or cached summaries.
+
+==================================================
+RESET LOGIC
+==================================================
+
+Daily routine reset:
+When app opens:
+1. Check current date.
+2. Compare with lastOpenedDate.
+3. If date changed:
+   - set all daily tasks isDone = false
+   - remove completed temporary tasks from previous days
+   - ask whether to move unfinished temporary tasks to today, or delete them
+   - update lastOpenedDate
+
+This does not need a background service.
+
+Study data should never reset.
+Study sessions remain permanently unless user deletes them.
+
+==================================================
+PERFORMANCE REQUIREMENTS
+==================================================
+
+The app must not be laggy or overloaded.
+
+Performance principles:
+- local database should be fast
+- avoid unnecessary re-rendering
+- avoid loading all history into UI at once
+- calculate stats efficiently
+- cache summaries when needed
+- keep animations light
+- keep charts simple
+- avoid huge libraries if possible
+- avoid background processes unless necessary
+- app should open quickly
+- marking a task done should be instant
+- starting timer should be instant
+- switching tabs should be smooth
+
+Recommended storage:
+Use SQLite or a reliable local database.
+For small MVP, local key-value storage is acceptable, but SQLite is better for long-term study sessions.
+
+Efficient stats:
+For MVP:
+- calculate totals from StudySession records
+
+For larger data:
+- add cached daily/monthly summaries
+
+Example summary table:
+DailyStudySummary:
+- date
+- subjectId
+- totalMinutes
+
+MonthlyStudySummary:
+- month
+- subjectId
+- totalMinutes
+
+This prevents lag when calculating 1 year or all-time stats.
+
+Important:
+Even if the user has thousands of study sessions, Stats should remain smooth.
+
+Charts:
+- simple bar chart for last 7 days
+- simple trend chart for 30 days
+- avoid complex animations
+- lazy load charts only on Stats page
+
+UI:
+- render only visible lists
+- archive old subjects instead of deleting study history
+- avoid excessive shadows/blur effects
+- avoid heavy gradient animations
+
+==================================================
+BACKUP JSON FORMAT
+==================================================
+
+Export file example:
+resetflow_backup.json
+
+Structure:
+
+{
+  "version": 1,
+  "exportedAt": "2026-05-11T19:37:00",
+  "tasks": [],
+  "subjects": [],
+  "studySessions": [],
+  "pomodoroSettings": {},
+  "settings": {},
+  "items": [],
+  "checklists": []
+}
+
+Import rules:
+- validate version
+- validate required fields
+- show preview before import if possible
+- never partially import corrupted data
+- create backup of current data before replacing if possible
+
+==================================================
+MVP REQUIREMENTS
+==================================================
+
+Build MVP first.
+
+MVP must include:
+1. Routine main page
+2. Add/edit/delete daily routine tasks
+3. Add/edit/delete temporary tasks
+4. One-tap done checkbox
+5. Daily reset of routine task statuses
+6. Temporary tasks disappear after day ends
+7. Optional carry-to-tomorrow prompt for unfinished temporary tasks
+8. Study page with subjects
+9. Add/edit/delete/archive subjects
+10. Pomodoro timer for selected subject
+11. Save completed study minutes
+12. Manual study session entry
+13. Stats page with interactive filters:
+    - Today
+    - 7 Days
+    - 30 Days
+    - Year
+    - All Time
+14. Subject breakdown on Stats page
+15. Subject detail page
+16. Export backup JSON
+17. Import backup JSON
+18. Settings page
+19. Fully offline local storage
+20. Minimal fast UI
+
+Version 2 features:
+1. Item tracker
+2. Situation checklists
+3. Task templates
+4. Donut chart
+5. Monthly summary optimization
+6. Daily/weekly subject goals
+7. More detailed analytics
+8. Better but still lightweight animations
+
+==================================================
+MAIN PRINCIPLES
+==================================================
+
+The app should be:
+- offline
+- private
+- fast
+- minimal
+- smooth
+- convenient
+- easy to use with one hand
+- not overloaded
+- study and routine separated
+- backup-friendly
+- efficient with data structures
+
+The app should not become a generic todo app.
+
+It should feel like:
+A personal daily reset system plus a clean study tracker.
+
+Main user problem:
+I forget small daily things and temporary tasks, and I want to track study time by subject using Pomodoro.
+
+Main solution:
+A simple offline app where routine tasks reset daily, temporary tasks disappear after a day, and study tracking is separate with subject-based Pomodoro statistics.
+```

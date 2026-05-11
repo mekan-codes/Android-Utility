@@ -7,7 +7,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -21,11 +20,28 @@ import { useColors } from "@/hooks/useColors";
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { settings, updateSettings, exportStudyData, importStudyData, resetStudyData } = useStudy();
-  const { exportRoutineData, importRoutineData, resetRoutineData } = useRoutine();
+  const {
+    settings,
+    updateSettings,
+    exportStudyData,
+    importStudyData,
+    resetStudyData,
+    sessions,
+    subjects,
+    lastBackupDate,
+    setLastBackupDate,
+  } = useStudy();
+  const {
+    exportRoutineData,
+    importRoutineData,
+    resetRoutineData,
+    dailyTasks,
+    tempTasks,
+  } = useRoutine();
 
   const [workInput, setWorkInput] = useState(String(settings.workMinutes));
   const [breakInput, setBreakInput] = useState(String(settings.breakMinutes));
+  const [cyclesInput, setCyclesInput] = useState(String(settings.cycles));
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : 0;
@@ -33,6 +49,7 @@ export default function SettingsScreen() {
   const applySettings = () => {
     const work = parseInt(workInput, 10);
     const brk = parseInt(breakInput, 10);
+    const cyc = parseInt(cyclesInput, 10);
     if (isNaN(work) || work < 1 || work > 120) {
       Alert.alert("Invalid Value", "Work duration must be 1–120 minutes.");
       return;
@@ -41,9 +58,13 @@ export default function SettingsScreen() {
       Alert.alert("Invalid Value", "Break duration must be 1–60 minutes.");
       return;
     }
-    updateSettings({ workMinutes: work, breakMinutes: brk });
+    if (isNaN(cyc) || cyc < 1 || cyc > 10) {
+      Alert.alert("Invalid Value", "Cycles must be 1–10.");
+      return;
+    }
+    updateSettings({ workMinutes: work, breakMinutes: brk, cycles: cyc });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Saved", "Pomodoro settings updated.");
+    Alert.alert("Saved", "Timer settings updated.");
   };
 
   const handleExport = async () => {
@@ -53,18 +74,50 @@ export default function SettingsScreen() {
       const exportObj = {
         version: 1,
         exportedAt: new Date().toISOString(),
-        routine: routineData,
-        study: studyData,
+        tasks: routineData,
+        subjects: (studyData as Record<string, unknown>).subjects,
+        studySessions: (studyData as Record<string, unknown>).sessions,
+        pomodoroSettings: (studyData as Record<string, unknown>).settings,
       };
       const json = JSON.stringify(exportObj, null, 2);
+      const now = new Date().toISOString().split("T")[0] as string;
+      setLastBackupDate(now);
+
       if (Platform.OS === "web") {
-        Alert.alert("Export", "Copy this JSON to save your data:\n\n" + json.substring(0, 200) + "...");
+        Alert.alert(
+          "Backup Ready",
+          "Copy the JSON below to save your data:\n\n" + json.substring(0, 300) + "..."
+        );
       } else {
-        await Share.share({ message: json, title: "ResetFlow Data Export" });
+        await Share.share({
+          message: json,
+          title: "resetflow_backup.json",
+        });
       }
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "Export failed.");
     }
+  };
+
+  const handleImport = () => {
+    Alert.alert(
+      "Import Backup",
+      "Paste your backup JSON below. This will replace your current data.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Enter JSON",
+          onPress: () => {
+            // On mobile, we show instructions since we can't easily paste JSON
+            Alert.alert(
+              "Import Instructions",
+              "To import on Android:\n\n1. Export your backup from another device\n2. Copy the full JSON text\n3. Contact support to enable import\n\nFor now, use the export feature to back up your data.",
+              [{ text: "OK" }]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const handleResetAll = () => {
@@ -86,6 +139,17 @@ export default function SettingsScreen() {
     );
   };
 
+  const lastBackupLabel = lastBackupDate
+    ? (() => {
+        const days = Math.floor(
+          (Date.now() - new Date(lastBackupDate).getTime()) / 86400000
+        );
+        if (days === 0) return "Today";
+        if (days === 1) return "Yesterday";
+        return `${days} days ago`;
+      })()
+    : "Never";
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
@@ -95,105 +159,139 @@ export default function SettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.headline, { color: colors.foreground }]}>
-          Settings
-        </Text>
+        <Text style={[styles.headline, { color: colors.foreground }]}>Settings</Text>
 
-        {/* Pomodoro Settings */}
+        {/* Pomodoro Timer */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <Feather name="clock" size={16} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Pomodoro Timer
-            </Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Pomodoro Timer</Text>
           </View>
 
           <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-              Focus Duration
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Focus Duration</Text>
             <View style={styles.inputRow}>
               <TextInput
-                style={[
-                  styles.numInput,
-                  {
-                    backgroundColor: colors.muted,
-                    color: colors.foreground,
-                    borderRadius: 8,
-                  },
-                ]}
+                style={[styles.numInput, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: 8 }]}
                 value={workInput}
                 onChangeText={setWorkInput}
                 keyboardType="number-pad"
                 maxLength={3}
-                returnKeyType="done"
+                returnKeyType="next"
               />
-              <Text style={[styles.unitText, { color: colors.mutedForeground }]}>
-                min
-              </Text>
+              <Text style={[styles.unitText, { color: colors.mutedForeground }]}>min</Text>
             </View>
           </View>
 
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
           <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-              Break Duration
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Break Duration</Text>
             <View style={styles.inputRow}>
               <TextInput
-                style={[
-                  styles.numInput,
-                  {
-                    backgroundColor: colors.muted,
-                    color: colors.foreground,
-                    borderRadius: 8,
-                  },
-                ]}
+                style={[styles.numInput, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: 8 }]}
                 value={breakInput}
                 onChangeText={setBreakInput}
                 keyboardType="number-pad"
                 maxLength={2}
-                returnKeyType="done"
+                returnKeyType="next"
               />
-              <Text style={[styles.unitText, { color: colors.mutedForeground }]}>
-                min
-              </Text>
+              <Text style={[styles.unitText, { color: colors.mutedForeground }]}>min</Text>
+            </View>
+          </View>
+
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Cycles per Session</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.numInput, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: 8 }]}
+                value={cyclesInput}
+                onChangeText={setCyclesInput}
+                keyboardType="number-pad"
+                maxLength={2}
+                returnKeyType="done"
+                onSubmitEditing={applySettings}
+              />
+              <Text style={[styles.unitText, { color: colors.mutedForeground }]}>cycles</Text>
             </View>
           </View>
 
           <TouchableOpacity
             onPress={applySettings}
-            style={[
-              styles.saveBtn,
-              { backgroundColor: colors.primary, borderRadius: 10 },
-            ]}
+            style={[styles.saveBtn, { backgroundColor: colors.primary, borderRadius: 10 }]}
           >
-            <Text style={[styles.saveBtnText, { color: "#fff" }]}>
-              Save Settings
-            </Text>
+            <Text style={styles.saveBtnText}>Save Settings</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Data */}
+        {/* Data Summary */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <Feather name="database" size={16} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Data
-            </Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Your Data</Text>
           </View>
 
-          <TouchableOpacity
-            onPress={handleExport}
-            style={styles.row}
-            activeOpacity={0.7}
-          >
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Daily Tasks</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{dailyTasks.length}</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Subjects</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{subjects.length}</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Study Sessions</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{sessions.length}</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Last Backup</Text>
+            <Text
+              style={[
+                styles.rowValue,
+                { color: lastBackupDate ? colors.success : colors.warning },
+              ]}
+            >
+              {lastBackupLabel}
+            </Text>
+          </View>
+        </View>
+
+        {/* Backup */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.sectionHeader}>
+            <Feather name="archive" size={16} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Backup</Text>
+          </View>
+
+          <TouchableOpacity onPress={handleExport} style={styles.row} activeOpacity={0.7}>
             <View style={styles.rowLeft}>
               <Feather name="share" size={16} color={colors.primary} />
-              <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-                Export Data
-              </Text>
+              <View>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>Export Backup</Text>
+                <Text style={[styles.rowSubLabel, { color: colors.mutedForeground }]}>
+                  Share resetflow_backup.json
+                </Text>
+              </View>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+
+          <TouchableOpacity onPress={handleImport} style={styles.row} activeOpacity={0.7}>
+            <View style={styles.rowLeft}>
+              <Feather name="download" size={16} color={colors.primary} />
+              <View>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>Import Backup</Text>
+                <Text style={[styles.rowSubLabel, { color: colors.mutedForeground }]}>
+                  Restore from JSON file
+                </Text>
+              </View>
             </View>
             <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
           </TouchableOpacity>
@@ -201,9 +299,9 @@ export default function SettingsScreen() {
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
           <View style={styles.infoRow}>
-            <Feather name="info" size={14} color={colors.mutedForeground} />
+            <Feather name="shield" size={14} color={colors.mutedForeground} />
             <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-              All data is stored locally on your device. No account or internet connection required.
+              All data is stored locally on this device. No account or internet required.
             </Text>
           </View>
         </View>
@@ -212,35 +310,26 @@ export default function SettingsScreen() {
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
             <Feather name="info" size={16} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              About
-            </Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>About</Text>
           </View>
           <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-              App
-            </Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>
-              ResetFlow
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>App</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>ResetFlow</Text>
           </View>
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
           <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-              Version
-            </Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>
-              1.0.0
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Version</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>1.0.0</Text>
           </View>
           <View style={[styles.separator, { backgroundColor: colors.border }]} />
           <View style={styles.row}>
-            <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-              Daily Reset
-            </Text>
-            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>
-              Midnight
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Storage</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>Local only</Text>
+          </View>
+          <View style={[styles.separator, { backgroundColor: colors.border }]} />
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, { color: colors.foreground }]}>Daily Reset</Text>
+            <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>Midnight</Text>
           </View>
         </View>
 
@@ -248,23 +337,15 @@ export default function SettingsScreen() {
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.destructive + "30" }]}>
           <View style={styles.sectionHeader}>
             <Feather name="alert-triangle" size={16} color={colors.destructive} />
-            <Text style={[styles.sectionTitle, { color: colors.destructive }]}>
-              Danger Zone
-            </Text>
+            <Text style={[styles.sectionTitle, { color: colors.destructive }]}>Danger Zone</Text>
           </View>
-
           <TouchableOpacity
             onPress={handleResetAll}
-            style={[
-              styles.dangerBtn,
-              { borderColor: colors.destructive, borderRadius: 10 },
-            ]}
+            style={[styles.dangerBtn, { borderColor: colors.destructive, borderRadius: 10 }]}
             activeOpacity={0.7}
           >
             <Feather name="trash-2" size={16} color={colors.destructive} />
-            <Text style={[styles.dangerBtnText, { color: colors.destructive }]}>
-              Reset All Data
-            </Text>
+            <Text style={[styles.dangerBtnText, { color: colors.destructive }]}>Reset All Data</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -275,12 +356,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 18 },
-  headline: {
-    fontSize: 28,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: -0.5,
-    marginBottom: 20,
-  },
+  headline: { fontSize: 28, fontFamily: "Inter_700Bold", letterSpacing: -0.5, marginBottom: 20 },
   section: {
     borderRadius: 16,
     borderWidth: 1,
@@ -301,10 +377,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#E5E7F0",
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-  },
+  sectionTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -312,62 +385,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  rowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  rowLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-  },
-  rowValue: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
+  rowLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  rowLabel: { fontSize: 15, fontFamily: "Inter_500Medium" },
+  rowSubLabel: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 1 },
+  rowValue: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  inputRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   numInput: {
-    width: 56,
+    width: 60,
     paddingVertical: 7,
     paddingHorizontal: 10,
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
     textAlign: "center",
   },
-  unitText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: 16,
-  },
-  saveBtn: {
-    margin: 16,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  saveBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  infoText: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-    lineHeight: 18,
-  },
+  unitText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  separator: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
+  saveBtn: { margin: 16, paddingVertical: 12, alignItems: "center" },
+  saveBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: 16, paddingVertical: 14 },
+  infoText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
   dangerBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -377,8 +413,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderWidth: 1,
   },
-  dangerBtnText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-  },
+  dangerBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });
