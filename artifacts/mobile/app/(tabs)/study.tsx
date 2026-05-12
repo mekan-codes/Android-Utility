@@ -1,10 +1,11 @@
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import { usePathname } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -64,8 +65,17 @@ export default function StudyScreen() {
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [editingSubject, setEditingSubject] = useState<{ id: string; name: string; color: string } | null>(null);
+  const [manualSubjectId, setManualSubjectId] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState(getDateStr(0));
   const [undoDismissed, setUndoDismissed] = useState<string | null>(null);
+  const [stopDialog, setStopDialog] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : 0;
@@ -91,33 +101,37 @@ export default function StudyScreen() {
 
     const elapsedSeconds = getPartialStudySeconds();
     if (elapsedSeconds <= 0) {
-      Alert.alert(
-        "Stop Session?",
-        "No focus time has been recorded yet. Stop without saving?",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Stop", style: "destructive", onPress: () => { stopPomodoro(false); onAfterStop?.(); } },
-        ]
-      );
+      setStopDialog({
+        title: "Stop Session?",
+        message: "No focus time has been recorded yet. Stop without saving?",
+        confirmLabel: "Stop",
+        destructive: true,
+        onConfirm: () => {
+          stopPomodoro(false);
+          onAfterStop?.();
+        },
+      });
       return;
     }
 
     const elapsedMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
-    Alert.alert(
-      "Stop and save session?",
-      pomodoro.phase === "break"
-        ? `Save ${elapsedMinutes}m of focus time? Break time will not be counted.`
-        : elapsedSeconds < 60
+    if (pomodoro.phase === "break") {
+      stopPomodoro(true);
+      onAfterStop?.();
+      return;
+    }
+
+    setStopDialog({
+      title: "Stop and save session?",
+      message: elapsedSeconds < 60
         ? "Less than 1 minute focused. Save as 1 minute?"
         : `Save ${elapsedMinutes}m of focus time?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: elapsedSeconds < 60 ? "Save 1m" : "Stop & Save",
-          onPress: () => { stopPomodoro(true); onAfterStop?.(); },
-        },
-      ]
-    );
+      confirmLabel: elapsedSeconds < 60 ? "Save 1m" : "Stop & Save",
+      onConfirm: () => {
+        stopPomodoro(true);
+        onAfterStop?.();
+      },
+    });
   };
 
   const handleStartSubject = (id: string, name: string, minutes?: number, cycles?: number) => {
@@ -125,10 +139,7 @@ export default function StudyScreen() {
       if (pomodoro.subjectId === id) {
         confirmStop();
       } else {
-        Alert.alert("Session Active", `Stop "${pomodoro.subjectName}" before starting another subject.`, [
-          { text: "Cancel", style: "cancel" },
-          { text: "Stop Current", style: "destructive", onPress: () => confirmStop(() => startPomodoro(id, name, minutes, cycles)) },
-        ]);
+        confirmStop(() => startPomodoro(id, name, minutes, cycles));
       }
       return;
     }
@@ -136,6 +147,27 @@ export default function StudyScreen() {
   };
 
   const showUndoBanner = lastSavedSession !== null && lastSavedSession.id !== undoDismissed;
+
+  useEffect(() => {
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+
+    if (!showUndoBanner || !lastSavedSession) return;
+    const sessionId = lastSavedSession.id;
+    undoTimerRef.current = setTimeout(() => {
+      setUndoDismissed(sessionId);
+      undoTimerRef.current = null;
+    }, 3000);
+
+    return () => {
+      if (undoTimerRef.current) {
+        clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = null;
+      }
+    };
+  }, [lastSavedSession, showUndoBanner]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -152,7 +184,10 @@ export default function StudyScreen() {
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
-              onPress={() => setShowManual(true)}
+              onPress={() => {
+                setManualSubjectId(undefined);
+                setShowManual(true);
+              }}
               style={[styles.iconBtn, { backgroundColor: colors.secondary }]}
             >
               <Feather name="plus-circle" size={20} color={colors.primary} />
@@ -228,12 +263,21 @@ export default function StudyScreen() {
             </Text>
             <View style={styles.undoActions}>
               <TouchableOpacity
-                onPress={() => { undoLastSession(); setUndoDismissed(lastSavedSession.id); }}
+                onPress={() => {
+                  if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+                  undoTimerRef.current = null;
+                  undoLastSession();
+                  setUndoDismissed(lastSavedSession.id);
+                }}
                 style={styles.undoBtn}
               >
                 <Text style={styles.undoBtnText}>Undo</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setUndoDismissed(lastSavedSession.id)}>
+              <TouchableOpacity onPress={() => {
+                if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+                undoTimerRef.current = null;
+                setUndoDismissed(lastSavedSession.id);
+              }}>
                 <Feather name="x" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -272,7 +316,10 @@ export default function StudyScreen() {
                 onDelete={() => deleteSubject(subject.id)}
                 onArchive={() => archiveSubject(subject.id)}
                 onEdit={() => setEditingSubject({ id: subject.id, name: subject.name, color: subject.color })}
-                onAddManual={() => setShowManual(true)}
+                onAddManual={() => {
+                  setManualSubjectId(subject.id);
+                  setShowManual(true);
+                }}
               />
             );
           })
@@ -297,9 +344,41 @@ export default function StudyScreen() {
       <ManualSessionModal
         visible={showManual}
         subjects={activeSubjects}
+        defaultSubjectId={manualSubjectId}
         onClose={() => setShowManual(false)}
         onAdd={addManualSession}
       />
+
+      <Modal visible={stopDialog !== null} transparent animationType="fade" onRequestClose={() => setStopDialog(null)}>
+        <View style={styles.dialogOverlay}>
+          <Pressable style={styles.dialogBackdrop} onPress={() => setStopDialog(null)} />
+          <View style={[styles.dialogCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.dialogTitle, { color: colors.foreground }]}>{stopDialog?.title}</Text>
+            <Text style={[styles.dialogMessage, { color: colors.mutedForeground }]}>{stopDialog?.message}</Text>
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                onPress={() => setStopDialog(null)}
+                style={[styles.dialogButton, styles.dialogCancel, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.dialogButtonText, { color: colors.mutedForeground }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const action = stopDialog?.onConfirm;
+                  setStopDialog(null);
+                  action?.();
+                }}
+                style={[
+                  styles.dialogButton,
+                  { backgroundColor: stopDialog?.destructive ? colors.destructive : colors.primary },
+                ]}
+              >
+                <Text style={[styles.dialogButtonText, { color: "#fff" }]}>{stopDialog?.confirmLabel}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -368,4 +447,23 @@ const styles = StyleSheet.create({
   emptyHint: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 24 },
   emptyBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, marginTop: 8 },
   emptyBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  dialogOverlay: { flex: 1, justifyContent: "center", padding: 22, backgroundColor: "rgba(0,0,0,0.42)" },
+  dialogBackdrop: { ...StyleSheet.absoluteFillObject },
+  dialogCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 18,
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  dialogTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  dialogMessage: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  dialogActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 4 },
+  dialogButton: { minWidth: 104, alignItems: "center", justifyContent: "center", paddingVertical: 11, paddingHorizontal: 14, borderRadius: 10 },
+  dialogCancel: { borderWidth: 1 },
+  dialogButtonText: { fontSize: 14, fontFamily: "Inter_700Bold" },
 });

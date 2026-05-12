@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   progressBarWrapper: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 24 },
   progressBarBg: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
   progressBarFill: { height: 6, borderRadius: 3 },
-  progressPercent: { fontSize: 12, fontFamily: "Inter_600SemiBold", width: 32, textAlign: "right" },
+  progressPercent: { fontSize: 12, fontFamily: "Inter_700Bold", minWidth: 44, textAlign: "right" },
   section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: "row",

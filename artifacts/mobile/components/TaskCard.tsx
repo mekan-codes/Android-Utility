@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { DeadlineStatus, getDeadlineStatus } from "@/context/RoutineContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -43,6 +43,7 @@ export default function TaskCard({
   type,
 }: TaskCardProps) {
   const colors = useColors();
+  const [actionsVisible, setActionsVisible] = useState(false);
   const dlStatus = getDeadlineStatus(deadline, isDone);
   const reminder = reminderLabel(reminderOffsetMinutes);
 
@@ -66,88 +67,119 @@ export default function TaskCard({
   };
 
   const handleLongPress = () => {
-    const options: {
-      text: string;
-      onPress?: () => void;
-      style?: "destructive" | "cancel" | "default";
-    }[] = [{ text: "Cancel", style: "cancel" }];
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setActionsVisible(true);
+  };
 
-    if (onEdit) options.push({ text: "Edit", onPress: onEdit });
-    if (type === "temp" && onMoveToTomorrow) options.push({ text: "Move to Tomorrow", onPress: onMoveToTomorrow });
-    options.push({ text: "Delete", style: "destructive", onPress: onDelete });
-
-    Alert.alert(name, undefined, options);
+  const runAction = (action?: () => void) => {
+    setActionsVisible(false);
+    if (action) setTimeout(action, 160);
   };
 
   return (
-    <TouchableOpacity
-      onPress={handleToggle}
-      onLongPress={handleLongPress}
-      activeOpacity={0.75}
-      style={[
-        styles.card,
-        {
-          backgroundColor: isDone ? colors.muted : colors.card,
-          borderColor: isDone ? colors.border : dlStatus === "overdue" ? colors.destructive + "40" : colors.border,
-        },
-      ]}
-    >
-      <View
+    <>
+      <TouchableOpacity
+        onPress={handleToggle}
+        onLongPress={handleLongPress}
+        activeOpacity={0.75}
         style={[
-          styles.checkbox,
+          styles.card,
           {
-            borderColor: isDone ? colors.success : dlStatus === "overdue" ? colors.destructive : colors.border,
-            backgroundColor: isDone ? colors.success : "transparent",
+            backgroundColor: isDone ? colors.muted : colors.card,
+            borderColor: isDone ? colors.border : dlStatus === "overdue" ? colors.destructive + "40" : colors.border,
           },
         ]}
       >
-        {isDone && <Feather name="check" size={14} color="#fff" />}
-      </View>
-
-      <View style={styles.content}>
-        <Text
+        <View
           style={[
-            styles.name,
+            styles.checkbox,
             {
-              color: isDone ? colors.mutedForeground : colors.foreground,
-              textDecorationLine: isDone ? "line-through" : "none",
+              borderColor: isDone ? colors.success : dlStatus === "overdue" ? colors.destructive : colors.border,
+              backgroundColor: isDone ? colors.success : "transparent",
             },
           ]}
-          numberOfLines={2}
         >
-          {name}
-        </Text>
-        {deadline || category || reminder ? (
-          <View style={styles.metaRow}>
-            {deadline ? (
-              <View style={[styles.badge, { backgroundColor: isDone ? colors.muted : deadlineBgColor }]}>
-                <Feather name="clock" size={10} color={isDone ? colors.mutedForeground : deadlineTextColor} />
-                <Text style={[styles.badgeText, { color: isDone ? colors.mutedForeground : deadlineTextColor }]}>
-                  {isDone ? deadline : deadlineLabel(deadline, dlStatus)}
-                </Text>
-              </View>
-            ) : null}
-            {reminder ? (
-              <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
-                <Feather name="bell" size={10} color={colors.primary} />
-                <Text style={[styles.badgeText, { color: colors.primary }]}>{reminder}</Text>
-              </View>
-            ) : null}
-            {category ? (
-              <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
-                <Text style={[styles.badgeText, { color: colors.primary }]}>{category}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
-
-      {isDone && (
-        <View style={[styles.donePill, { backgroundColor: colors.successLight }]}>
-          <Text style={[styles.doneText, { color: colors.successForeground }]}>Done</Text>
+          {isDone && <Feather name="check" size={14} color="#fff" />}
         </View>
-      )}
-    </TouchableOpacity>
+
+        <View style={styles.content}>
+          <Text
+            style={[
+              styles.name,
+              {
+                color: isDone ? colors.mutedForeground : colors.foreground,
+                textDecorationLine: isDone ? "line-through" : "none",
+              },
+            ]}
+            numberOfLines={2}
+          >
+            {name}
+          </Text>
+          {deadline || category || reminder ? (
+            <View style={styles.metaRow}>
+              {deadline ? (
+                <View style={[styles.badge, { backgroundColor: isDone ? colors.muted : deadlineBgColor }]}>
+                  <Feather name="clock" size={10} color={isDone ? colors.mutedForeground : deadlineTextColor} />
+                  <Text style={[styles.badgeText, { color: isDone ? colors.mutedForeground : deadlineTextColor }]}>
+                    {isDone ? deadline : deadlineLabel(deadline, dlStatus)}
+                  </Text>
+                </View>
+              ) : null}
+              {reminder ? (
+                <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
+                  <Feather name="bell" size={10} color={colors.primary} />
+                  <Text style={[styles.badgeText, { color: colors.primary }]}>{reminder}</Text>
+                </View>
+              ) : null}
+              {category ? (
+                <View style={[styles.badge, { backgroundColor: colors.secondary }]}>
+                  <Text style={[styles.badgeText, { color: colors.primary }]}>{category}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+
+        {isDone && (
+          <View style={[styles.donePill, { backgroundColor: colors.successLight }]}>
+            <Text style={[styles.doneText, { color: colors.successForeground }]}>Done</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      <Modal visible={actionsVisible} transparent animationType="fade" onRequestClose={() => setActionsVisible(false)}>
+        <View style={styles.actionOverlay}>
+          <Pressable style={styles.actionBackdrop} onPress={() => setActionsVisible(false)} />
+          <View style={[styles.actionSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.actionHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.actionTitle, { color: colors.foreground }]} numberOfLines={2}>{name}</Text>
+
+            {onEdit ? (
+              <TouchableOpacity onPress={() => runAction(onEdit)} style={[styles.actionButton, { backgroundColor: colors.muted }]}>
+                <Feather name="edit-2" size={17} color={colors.foreground} />
+                <Text style={[styles.actionText, { color: colors.foreground }]}>Edit</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {type === "temp" && onMoveToTomorrow ? (
+              <TouchableOpacity onPress={() => runAction(onMoveToTomorrow)} style={[styles.actionButton, { backgroundColor: colors.muted }]}>
+                <Feather name="calendar" size={17} color={colors.foreground} />
+                <Text style={[styles.actionText, { color: colors.foreground }]}>Move to Tomorrow</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity onPress={() => runAction(onDelete)} style={[styles.actionButton, { backgroundColor: colors.destructive + "15" }]}>
+              <Feather name="trash-2" size={17} color={colors.destructive} />
+              <Text style={[styles.actionText, { color: colors.destructive }]}>Delete</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setActionsVisible(false)} style={[styles.cancelButton, { borderColor: colors.border }]}>
+              <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -190,4 +222,24 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontFamily: "Inter_500Medium" },
   donePill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   doneText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  actionOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
+  actionBackdrop: { ...StyleSheet.absoluteFillObject },
+  actionSheet: {
+    margin: 16,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  actionHandle: { width: 38, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 4 },
+  actionTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 4 },
+  actionButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12 },
+  actionText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  cancelButton: { alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: 12, borderWidth: 1, marginTop: 2 },
+  cancelText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

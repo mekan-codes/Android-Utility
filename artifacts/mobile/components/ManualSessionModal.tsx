@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -187,39 +188,48 @@ export default function ManualSessionModal({
               <Text style={[styles.title, { color: colors.foreground }]}>Add Study Time</Text>
 
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Subject</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.subjectRow}
-              >
-                {subjects.length === 0 ? (
+              {subjects.length === 0 ? (
+                <View style={styles.emptySubjectRow}>
                   <Text style={[styles.emptySubjectText, { color: colors.mutedForeground }]}>
                     Add a subject first.
                   </Text>
-                ) : subjects.map((s) => (
-                  <TouchableOpacity
-                    key={s.id}
-                    onPress={() => setSelectedSubjectId(s.id)}
-                    style={[
-                      styles.subjectChip,
-                      {
-                        backgroundColor: selectedSubjectId === s.id ? s.color : colors.muted,
-                        borderColor: selectedSubjectId === s.id ? s.color : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
+                </View>
+              ) : (
+                <FlatList
+                  data={subjects}
+                  keyExtractor={(subject) => subject.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled
+                  removeClippedSubviews={false}
+                  style={styles.subjectScroller}
+                  contentContainerStyle={styles.subjectRow}
+                  renderItem={({ item: s }) => (
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => setSelectedSubjectId(s.id)}
                       style={[
-                        styles.subjectChipText,
-                        { color: selectedSubjectId === s.id ? "#fff" : colors.foreground },
+                        styles.subjectChip,
+                        {
+                          backgroundColor: selectedSubjectId === s.id ? s.color : colors.muted,
+                          borderColor: selectedSubjectId === s.id ? s.color : colors.border,
+                        },
                       ]}
                     >
-                      {s.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                      <Text
+                        style={[
+                          styles.subjectChipText,
+                          { color: selectedSubjectId === s.id ? "#fff" : colors.foreground },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {s.name}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
 
               <Text style={[styles.label, { color: colors.mutedForeground }]}>Duration</Text>
               <View style={styles.quickRow}>
@@ -350,9 +360,11 @@ const styles = StyleSheet.create({
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#D1D5DB", alignSelf: "center", marginBottom: 8 },
   title: { fontSize: 18, fontFamily: "Inter_700Bold", marginBottom: 4 },
   label: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.5 },
-  subjectRow: { paddingBottom: 2 },
-  subjectChip: { paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderRadius: 10 },
+  subjectScroller: { maxWidth: "100%", flexGrow: 0 },
+  subjectRow: { alignItems: "center", gap: 8, paddingBottom: 2, paddingRight: 84 },
+  subjectChip: { maxWidth: 220, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderRadius: 10 },
   subjectChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  emptySubjectRow: { paddingVertical: 2 },
   emptySubjectText: { fontSize: 13, fontFamily: "Inter_500Medium", paddingVertical: 8 },
   quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   quickChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 9, borderWidth: 1 },

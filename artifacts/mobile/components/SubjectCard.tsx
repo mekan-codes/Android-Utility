@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 
@@ -46,6 +46,7 @@ export default function SubjectCard({
 }: SubjectCardProps) {
   const colors = useColors();
   const router = useRouter();
+  const [actionsVisible, setActionsVisible] = useState(false);
 
   const handleStart = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -57,71 +58,115 @@ export default function SubjectCard({
   };
 
   const handleLongPress = () => {
-    Alert.alert(name, "What would you like to do?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Start 25 min", onPress: onStart25 ?? onStart },
-      { text: "Start 50 min", onPress: onStart50 ?? onStart },
-      { text: "View Details", onPress: handlePress },
-      { text: "Add Manual Time", onPress: onAddManual },
-      { text: "Edit Subject", onPress: onEdit },
-      ...(onArchive ? [{ text: "Archive", onPress: onArchive }] : []),
-      { text: "Delete", style: "destructive", onPress: onDelete },
-    ]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setActionsVisible(true);
+  };
+
+  const runAction = (action: () => void) => {
+    setActionsVisible(false);
+    setTimeout(action, 160);
   };
 
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      onLongPress={handleLongPress}
-      activeOpacity={0.85}
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isActive ? color : colors.border,
-          borderRadius: 14,
-          borderWidth: isActive ? 2 : 1,
-        },
-      ]}
-    >
-      <View style={[styles.colorBar, { backgroundColor: color }]} />
-
-      <View style={styles.content}>
-        <Text style={[styles.name, { color: colors.foreground }]}>{name}</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Today</Text>
-            <Text style={[styles.statValue, { color: todayMinutes > 0 ? color : colors.mutedForeground }]}>
-              {formatMinutes(todayMinutes)}
-            </Text>
-          </View>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>This Week</Text>
-            <Text style={[styles.statValue, { color: colors.foreground }]}>
-              {formatMinutes(weekMinutes)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
+    <>
       <TouchableOpacity
-        onPress={handleStart}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        activeOpacity={0.85}
         style={[
-          styles.startBtn,
+          styles.card,
           {
-            backgroundColor: isActive ? color + "20" : color,
-            borderRadius: 10,
+            backgroundColor: colors.card,
+            borderColor: isActive ? color : colors.border,
+            borderRadius: 14,
+            borderWidth: isActive ? 2 : 1,
           },
         ]}
       >
-        <Feather
-          name={isActive ? "stop-circle" : "play"}
-          size={18}
-          color={isActive ? color : "#fff"}
-        />
+        <View style={[styles.colorBar, { backgroundColor: color }]} />
+
+        <View style={styles.content}>
+          <Text style={[styles.name, { color: colors.foreground }]}>{name}</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Today</Text>
+              <Text style={[styles.statValue, { color: todayMinutes > 0 ? color : colors.mutedForeground }]}>
+                {formatMinutes(todayMinutes)}
+              </Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>This Week</Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>
+                {formatMinutes(weekMinutes)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          onPress={handleStart}
+          style={[
+            styles.startBtn,
+            {
+              backgroundColor: isActive ? color + "20" : color,
+              borderRadius: 10,
+            },
+          ]}
+        >
+          <Feather
+            name={isActive ? "stop-circle" : "play"}
+            size={18}
+            color={isActive ? color : "#fff"}
+          />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
+
+      <Modal visible={actionsVisible} transparent animationType="fade" onRequestClose={() => setActionsVisible(false)}>
+        <View style={styles.actionOverlay}>
+          <Pressable style={styles.actionBackdrop} onPress={() => setActionsVisible(false)} />
+          <View style={[styles.actionSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.actionHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.actionTitle, { color: colors.foreground }]} numberOfLines={2}>{name}</Text>
+            <View style={styles.actionGrid}>
+              <TouchableOpacity onPress={() => runAction(onStart25 ?? onStart)} style={[styles.actionButton, styles.actionGridButton, { backgroundColor: colors.muted }]}>
+                <Feather name="play" size={16} color={colors.foreground} />
+                <Text style={[styles.actionText, { color: colors.foreground }]}>Start 25 min</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => runAction(onStart50 ?? onStart)} style={[styles.actionButton, styles.actionGridButton, { backgroundColor: colors.muted }]}>
+                <Feather name="fast-forward" size={16} color={colors.foreground} />
+                <Text style={[styles.actionText, { color: colors.foreground }]}>Start 50 min</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={() => runAction(handlePress)} style={[styles.actionButton, { backgroundColor: colors.muted }]}>
+              <Feather name="bar-chart-2" size={16} color={colors.foreground} />
+              <Text style={[styles.actionText, { color: colors.foreground }]}>View Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => runAction(onAddManual)} style={[styles.actionButton, { backgroundColor: colors.muted }]}>
+              <Feather name="plus-circle" size={16} color={colors.foreground} />
+              <Text style={[styles.actionText, { color: colors.foreground }]}>Add Manual Time</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => runAction(onEdit)} style={[styles.actionButton, { backgroundColor: colors.muted }]}>
+              <Feather name="edit-2" size={16} color={colors.foreground} />
+              <Text style={[styles.actionText, { color: colors.foreground }]}>Edit Subject</Text>
+            </TouchableOpacity>
+            {onArchive ? (
+              <TouchableOpacity onPress={() => runAction(onArchive)} style={[styles.actionButton, { backgroundColor: colors.muted }]}>
+                <Feather name="archive" size={16} color={colors.foreground} />
+                <Text style={[styles.actionText, { color: colors.foreground }]}>Archive</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity onPress={() => runAction(onDelete)} style={[styles.actionButton, { backgroundColor: colors.destructive + "15" }]}>
+              <Feather name="trash-2" size={16} color={colors.destructive} />
+              <Text style={[styles.actionText, { color: colors.destructive }]}>Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setActionsVisible(false)} style={[styles.cancelButton, { borderColor: colors.border }]}>
+              <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -162,4 +207,26 @@ const styles = StyleSheet.create({
     marginRight: 12,
     flexShrink: 0,
   },
+  actionOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
+  actionBackdrop: { ...StyleSheet.absoluteFillObject },
+  actionSheet: {
+    margin: 16,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  actionHandle: { width: 38, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 4 },
+  actionTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 4 },
+  actionGrid: { flexDirection: "row", gap: 8 },
+  actionButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12 },
+  actionGridButton: { flex: 1 },
+  actionText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  cancelButton: { alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: 12, borderWidth: 1, marginTop: 2 },
+  cancelText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

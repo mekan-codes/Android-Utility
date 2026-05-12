@@ -63,10 +63,14 @@ export function normalizeNotificationSettings(value: unknown): NotificationSetti
 
 export async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "web") return false;
-  const current = await Notifications.getPermissionsAsync();
-  if (current.granted) return true;
-  const requested = await Notifications.requestPermissionsAsync();
-  return requested.granted;
+  try {
+    const current = await Notifications.getPermissionsAsync();
+    if (current.granted) return true;
+    const requested = await Notifications.requestPermissionsAsync();
+    return requested.granted;
+  } catch {
+    return false;
+  }
 }
 
 export async function cancelNotification(notificationId?: string | null): Promise<void> {
@@ -129,14 +133,18 @@ export async function scheduleTaskReminder(params: {
       ? `${reminderOffsetMinutes} min left`
       : "Task due";
 
-  return Notifications.scheduleNotificationAsync({
-    content: {
-      title: prefix,
-      body: taskName,
-      sound: false,
-    },
-    trigger: { seconds } as Notifications.NotificationTriggerInput,
-  });
+  try {
+    return await Notifications.scheduleNotificationAsync({
+      content: {
+        title: prefix,
+        body: taskName,
+        sound: false,
+      },
+      trigger: { seconds } as Notifications.NotificationTriggerInput,
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function schedulePomodoroNotification(params: {
@@ -149,10 +157,14 @@ export async function schedulePomodoroNotification(params: {
   if (!settings.enabled || !settings.pomodoroNotificationsEnabled || seconds <= 0) return null;
   const hasPermission = await requestNotificationPermission();
   if (!hasPermission) return null;
-  return Notifications.scheduleNotificationAsync({
-    content: { title, body, sound: false },
-    trigger: { seconds: Math.max(1, Math.round(seconds)) } as Notifications.NotificationTriggerInput,
-  });
+  try {
+    return await Notifications.scheduleNotificationAsync({
+      content: { title, body, sound: false },
+      trigger: { seconds: Math.max(1, Math.round(seconds)) } as Notifications.NotificationTriggerInput,
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function rescheduleBackupReminder(
@@ -172,14 +184,18 @@ export async function rescheduleBackupReminder(
   base.setHours(9, 0, 0, 0);
   const seconds = Math.max(60, Math.round((base.getTime() - Date.now()) / 1000));
 
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Backup reminder",
-      body: "Export a ResetFlow backup when you have a minute.",
-      sound: false,
-    },
-    trigger: { seconds } as Notifications.NotificationTriggerInput,
-  });
+  try {
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Backup reminder",
+        body: "Export a ResetFlow backup when you have a minute.",
+        sound: false,
+      },
+      trigger: { seconds } as Notifications.NotificationTriggerInput,
+    });
 
-  return { ...settings, backupReminderNotificationId: id };
+    return { ...settings, backupReminderNotificationId: id };
+  } catch {
+    return { ...settings, backupReminderNotificationId: null };
+  }
 }

@@ -461,7 +461,10 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     );
   }, [saveSession]);
 
-  const schedulePhaseNotification = useCallback(async (state: PomodoroState): Promise<PomodoroState> => {
+  const schedulePhaseNotification = useCallback(async (
+    state: PomodoroState,
+    settingsOverride = notificationSettings
+  ): Promise<PomodoroState> => {
     const seconds = getRemainingSeconds(state);
     const isWork = state.phase === "work";
     const title = isWork ? "Study session done" : "Break done";
@@ -470,7 +473,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         ? `${state.subjectName}: all cycles finished`
         : `${state.subjectName}: time for a break`
       : `${state.subjectName}: start the next focus session`;
-    const id = await schedulePomodoroNotification({ settings: notificationSettings, title, body, seconds });
+    const id = await schedulePomodoroNotification({ settings: settingsOverride, title, body, seconds });
     return id ? { ...state, notificationIds: [...state.notificationIds, id] } : state;
   }, [notificationSettings]);
 
@@ -480,13 +483,13 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     persistPomodoro(state).catch(() => {});
   }, [persistPomodoro]);
 
-  const queuePhaseNotification = useCallback((state: PomodoroState) => {
+  const queuePhaseNotification = useCallback((state: PomodoroState, settingsOverride?: NotificationSettings) => {
     if (state.status !== "running") return;
     notificationTokenRef.current += 1;
     const token = notificationTokenRef.current;
     const previousNotificationIds = new Set(state.notificationIds);
 
-    schedulePhaseNotification(state).then((scheduledState) => {
+    schedulePhaseNotification(state, settingsOverride).then((scheduledState) => {
       const newNotificationIds = scheduledState.notificationIds.filter((id) => !previousNotificationIds.has(id));
       const current = pomodoroRef.current;
       if (notificationTokenRef.current !== token || !isSameRunningPhase(current, state)) {
@@ -831,11 +834,26 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
 
   const updateNotificationSettings = useCallback(async (patch: Partial<NotificationSettings>) => {
     const merged = normalizeNotificationSettings({ ...notificationSettings, ...patch });
-    const withBackup = await rescheduleBackupReminder(merged, lastBackupDate);
+    const withBackup = await rescheduleBackupReminder(merged, lastBackupDate)
+      .catch(() => ({ ...merged, backupReminderNotificationId: null }));
+    const activePomodoro = pomodoroRef.current;
+
+    if (activePomodoro && (!withBackup.enabled || !withBackup.pomodoroNotificationsEnabled)) {
+      await cancelNotifications(activePomodoro.notificationIds);
+      setAndPersistPomodoro({ ...activePomodoro, notificationIds: [] });
+    } else if (
+      activePomodoro?.status === "running" &&
+      withBackup.enabled &&
+      withBackup.pomodoroNotificationsEnabled &&
+      activePomodoro.notificationIds.length === 0
+    ) {
+      queuePhaseNotification(activePomodoro, withBackup);
+    }
+
     setNotificationSettingsState(withBackup);
     await saveNotificationSettings(withBackup);
     return withBackup;
-  }, [lastBackupDate, notificationSettings]);
+  }, [lastBackupDate, notificationSettings, queuePhaseNotification, setAndPersistPomodoro]);
 
   const setLastBackupDate = useCallback((date: string) => {
     setLastBackupDateState(date);

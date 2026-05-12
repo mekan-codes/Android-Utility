@@ -1,5 +1,5 @@
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system/legacy";
+import { File as ExpoFile, Paths } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import { Feather } from "@expo/vector-icons";
@@ -53,6 +53,16 @@ function normalizeBackup(raw: unknown): BackupData | null {
   if (!raw || typeof raw !== "object") return null;
   const data = raw as Record<string, unknown>;
   if (typeof data.version !== "number") return null;
+  const hasResetFlowData = [
+    "tasks",
+    "tempTasks",
+    "subjects",
+    "studySessions",
+    "pomodoroSettings",
+    "settings",
+    "notificationSettings",
+  ].some((key) => key in data);
+  if (!hasResetFlowData) return null;
   return {
     version: data.version,
     exportedAt: typeof data.exportedAt === "string" ? data.exportedAt : new Date().toISOString(),
@@ -72,6 +82,18 @@ function normalizeBackup(raw: unknown): BackupData | null {
     items: Array.isArray(data.items) ? data.items : [],
     checklists: Array.isArray(data.checklists) ? data.checklists : [],
   };
+}
+
+function createBackupFile(fileName: string, contents: string): string {
+  const file = new ExpoFile(Paths.cache, fileName);
+  if (file.exists) file.delete();
+  file.create({ intermediates: true, overwrite: true });
+  file.write(contents);
+  return file.uri;
+}
+
+async function readBackupFile(uri: string): Promise<string> {
+  return new ExpoFile(uri).text();
 }
 
 function Section({
@@ -198,15 +220,29 @@ export default function SettingsScreen() {
   };
 
   const updateNotifications = async (patch: Partial<NotificationSettings>) => {
-    if (patch.enabled === true) {
-      const granted = await requestNotificationPermission();
-      if (!granted) {
-        Alert.alert("Notifications Disabled", "Permission was not granted. You can still use ResetFlow offline without reminders.");
-        patch.enabled = false;
+    const nextPatch = { ...patch };
+    try {
+      const needsPermission =
+        nextPatch.enabled === true ||
+        (notificationSettings.enabled && (
+          nextPatch.taskRemindersEnabled === true ||
+          nextPatch.pomodoroNotificationsEnabled === true ||
+          (nextPatch.backupReminderIntervalDays !== undefined && nextPatch.backupReminderIntervalDays !== null)
+        ));
+
+      if (needsPermission) {
+        const granted = await requestNotificationPermission();
+        if (!granted) {
+          Alert.alert("Notifications Disabled", "Permission was not granted. ResetFlow will keep working without reminders.");
+          if (nextPatch.enabled === true) nextPatch.enabled = false;
+        }
       }
+
+      await updateNotificationSettings(nextPatch);
+      await rescheduleTaskNotifications();
+    } catch {
+      Alert.alert("Notifications", "Could not update reminder settings. Please try again.");
     }
-    await updateNotificationSettings(patch);
-    await rescheduleTaskNotifications();
   };
 
   const handleExport = async () => {
@@ -243,16 +279,12 @@ export default function SettingsScreen() {
       if (Platform.OS === "web") {
         Alert.alert("Export unavailable", "Use the Android app to create a backup file.");
       } else {
-        const cacheDirectory = FileSystem.cacheDirectory;
-        if (!cacheDirectory) {
-          throw new Error("Backup storage is unavailable.");
-        }
         const fileName = `resetflow_backup_${now}.json`;
-        const fileUri = `${cacheDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(exportObj, null, 2), {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-        if (!(await Sharing.isAvailableAsync())) throw new Error("Sharing is not available.");
+        const fileUri = createBackupFile(fileName, JSON.stringify(exportObj, null, 2));
+        if (!(await Sharing.isAvailableAsync())) {
+          Alert.alert("Export unavailable", "Your device does not have a share/save target available right now.");
+          return;
+        }
         await Sharing.shareAsync(fileUri, {
           mimeType: "application/json",
           dialogTitle: "Save ResetFlow Backup",
@@ -262,8 +294,8 @@ export default function SettingsScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("Backup Exported", "A JSON backup file was created and the share sheet was opened.");
       }
-    } catch (error) {
-      Alert.alert("Export Failed", error instanceof Error ? error.message : "Could not create the backup file.");
+    } catch {
+      Alert.alert("Export Failed", "Could not create the backup file. Please try again.");
     } finally {
       setExporting(false);
     }
@@ -274,7 +306,7 @@ export default function SettingsScreen() {
     setImporting(true);
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: "application/json",
+        type: ["application/json", "text/json", "text/plain", "*/*"],
         copyToCacheDirectory: true,
       });
 
@@ -283,9 +315,7 @@ export default function SettingsScreen() {
         return;
       }
 
-      const raw = await FileSystem.readAsStringAsync(result.assets[0].uri, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      const raw = await readBackupFile(result.assets[0].uri);
 
       let parsed: unknown;
       try {
@@ -355,7 +385,7 @@ export default function SettingsScreen() {
         ]
       );
     } catch {
-      Alert.alert("Import Failed", "Could not read the selected file.");
+      Alert.alert("Import Failed", "Could not read the selected backup file.");
       setImporting(false);
     }
   };
@@ -521,14 +551,17 @@ export default function SettingsScreen() {
                 return (
                   <TouchableOpacity
                     key={option.label}
-                    onPress={() => updateNotifications({ backupReminderIntervalDays: option.value })}
-                    disabled={!notificationSettings.enabled}
+                    onPress={() => updateNotifications(
+                      option.value === null
+                        ? { backupReminderIntervalDays: null }
+                        : { enabled: true, backupReminderIntervalDays: option.value }
+                    )}
                     style={[
                       styles.intervalChip,
                       {
                         backgroundColor: active ? colors.primary : colors.muted,
                         borderColor: active ? colors.primary : colors.border,
-                        opacity: notificationSettings.enabled ? 1 : 0.55,
+                        opacity: notificationSettings.enabled || option.value === null || active ? 1 : 0.72,
                       },
                     ]}
                   >
