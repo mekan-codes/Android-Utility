@@ -26,13 +26,14 @@ export default function PomodoroDisplay({
 }: PomodoroDisplayProps) {
   const colors = useColors();
   const isWork = pomodoro.phase === "work";
+  const isRunning = pomodoro.status === "running";
   const progressColor = isWork ? colors.primary : colors.success;
   const totalSeconds = (isWork ? pomodoro.workMinutes : pomodoro.breakMinutes) * 60;
-  const progress = Math.min(1, 1 - pomodoro.remainingSeconds / totalSeconds);
+  const progress = Math.max(0, Math.min(1, 1 - pomodoro.remainingSeconds / totalSeconds));
 
   const handlePauseResume = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (pomodoro.isRunning) onPause(); else onResume();
+    if (isRunning) onPause(); else onResume();
   };
 
   const handleStop = () => {
@@ -78,7 +79,7 @@ export default function PomodoroDisplay({
           {formatSeconds(pomodoro.remainingSeconds)}
         </Text>
 
-        {!pomodoro.isRunning && (
+        {!isRunning && (
           <Text style={[styles.pausedLabel, { color: colors.mutedForeground }]}>Paused</Text>
         )}
 
@@ -93,7 +94,7 @@ export default function PomodoroDisplay({
             onPress={handlePauseResume}
             style={[styles.mainBtn, { backgroundColor: progressColor, borderRadius: 16 }]}
           >
-            <Feather name={pomodoro.isRunning ? "pause" : "play"} size={26} color="#fff" />
+            <Feather name={isRunning ? "pause" : "play"} size={26} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>

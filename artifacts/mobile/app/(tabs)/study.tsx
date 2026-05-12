@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
+import { usePathname } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -36,6 +37,7 @@ function getDateStr(daysAgo: number): string {
 export default function StudyScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
   const {
     activeSubjects,
     sessions,
@@ -72,6 +74,7 @@ export default function StudyScreen() {
   const dailyGoal = activeSubjects.reduce((sum, s) => sum + (s.dailyGoalMinutes ?? 0), 0) || 180;
   const remainingGoal = Math.max(0, dailyGoal - todayTotal);
   const isToday = selectedDate === getDateStr(0);
+  const isStudyFocused = pathname === "/study";
 
   const dateStrip = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -86,10 +89,11 @@ export default function StudyScreen() {
   const confirmStop = (onAfterStop?: () => void) => {
     if (!pomodoro) return;
 
-    if (pomodoro.phase === "break") {
+    const elapsedSeconds = getPartialStudySeconds();
+    if (elapsedSeconds <= 0) {
       Alert.alert(
         "Stop Session?",
-        "Break time is not saved. Stop session?",
+        "No focus time has been recorded yet. Stop without saving?",
         [
           { text: "Cancel", style: "cancel" },
           { text: "Stop", style: "destructive", onPress: () => { stopPomodoro(false); onAfterStop?.(); } },
@@ -98,25 +102,25 @@ export default function StudyScreen() {
       return;
     }
 
-    const elapsedSeconds = getPartialStudySeconds();
     const elapsedMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
     Alert.alert(
-      "Save partial session?",
-      elapsedSeconds < 60
-        ? "Less than 1 minute studied. Save as 1 minute?"
-        : `Save ${elapsedMinutes}m of study time?`,
+      "Stop and save session?",
+      pomodoro.phase === "break"
+        ? `Save ${elapsedMinutes}m of focus time? Break time will not be counted.`
+        : elapsedSeconds < 60
+        ? "Less than 1 minute focused. Save as 1 minute?"
+        : `Save ${elapsedMinutes}m of focus time?`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: elapsedSeconds < 60 ? "Save 1m" : "Save",
+          text: elapsedSeconds < 60 ? "Save 1m" : "Stop & Save",
           onPress: () => { stopPomodoro(true); onAfterStop?.(); },
         },
-        { text: "Discard", style: "destructive", onPress: () => { stopPomodoro(false); onAfterStop?.(); } },
       ]
     );
   };
 
-  const handleStartSubject = (id: string, name: string, minutes?: number, cycles = 1) => {
+  const handleStartSubject = (id: string, name: string, minutes?: number, cycles?: number) => {
     if (pomodoro) {
       if (pomodoro.subjectId === id) {
         confirmStop();
@@ -208,7 +212,7 @@ export default function StudyScreen() {
           ))}
         </ScrollView>
 
-        {pomodoro && (
+        {isStudyFocused && pomodoro && (
           <PomodoroDisplay
             pomodoro={pomodoro}
             onPause={pausePomodoro}
@@ -263,8 +267,8 @@ export default function StudyScreen() {
                 weekMinutes={getWeekMinutes(subject.id)}
                 isActive={pomodoro?.subjectId === subject.id}
                 onStart={() => handleStartSubject(subject.id, subject.name)}
-                onStart25={() => handleStartSubject(subject.id, subject.name, 25, 1)}
-                onStart50={() => handleStartSubject(subject.id, subject.name, 50, 1)}
+                onStart25={() => handleStartSubject(subject.id, subject.name, 25)}
+                onStart50={() => handleStartSubject(subject.id, subject.name, 50)}
                 onDelete={() => deleteSubject(subject.id)}
                 onArchive={() => archiveSubject(subject.id)}
                 onEdit={() => setEditingSubject({ id: subject.id, name: subject.name, color: subject.color })}

@@ -47,3 +47,14 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+node_modules/
+.expo/
+dist/
+build/
+
+artifacts/mobile/bundle-*/
+artifacts/mobile/apk-inspect/
+artifacts/mobile/apk-image/
+
+*.apk
+*.aab

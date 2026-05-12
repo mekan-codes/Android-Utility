@@ -62,18 +62,27 @@ export interface PomodoroSettings {
   cycles: number;
 }
 
+export type PomodoroMode = "focus" | "break";
+export type PomodoroStatus = "idle" | "running" | "paused";
+
 export interface PomodoroState {
   id: string;
+  selectedSubjectId: string;
   subjectId: string;
   subjectName: string;
+  mode: PomodoroMode;
   phase: "work" | "break";
+  status: Exclude<PomodoroStatus, "idle">;
   currentCycle: number;
   totalCycles: number;
   workMinutes: number;
   breakMinutes: number;
+  startedAt: string;
   phaseStartedAt: string | null;
+  pausedAt: string | null;
   pausedRemainingSeconds: number | null;
   remainingSeconds: number;
+  accumulatedFocusSeconds: number;
   isRunning: boolean;
   notificationIds: string[];
   completedWorkPhaseKeys: string[];
@@ -118,7 +127,7 @@ function phaseDurationSeconds(state: PomodoroState): number {
 }
 
 function getRemainingSeconds(state: PomodoroState, now = Date.now()): number {
-  if (!state.isRunning || !state.phaseStartedAt) {
+  if (state.status !== "running" || !state.phaseStartedAt) {
     return Math.max(0, state.pausedRemainingSeconds ?? state.remainingSeconds);
   }
   const elapsed = Math.floor((now - new Date(state.phaseStartedAt).getTime()) / 1000);
@@ -130,8 +139,37 @@ function getElapsedFocusSeconds(state: PomodoroState, now = Date.now()): number 
   return Math.max(0, phaseDurationSeconds(state) - getRemainingSeconds(state, now));
 }
 
-function getWorkPhaseKey(state: PomodoroState): string {
-  return `${state.id}:work:${state.currentCycle}:${state.phaseStartedAt ?? "paused"}`;
+function getTotalFocusSeconds(state: PomodoroState, now = Date.now(), includeCurrentPhase = false): number {
+  const accumulated = Math.max(0, Math.round(state.accumulatedFocusSeconds));
+  return includeCurrentPhase ? accumulated + getElapsedFocusSeconds(state, now) : accumulated;
+}
+
+function getCompletedFocusCycleCount(state: PomodoroState, focusSeconds: number): number {
+  const workSeconds = minutesToSeconds(state.workMinutes);
+  return Math.min(state.totalCycles, Math.floor(Math.max(0, focusSeconds) / workSeconds));
+}
+
+function focusSecondsToStudyMinutes(seconds: number): number {
+  return seconds > 0 ? Math.max(1, Math.round(seconds / 60)) : 0;
+}
+
+function getPomodoroSessionKey(state: PomodoroState): string {
+  return `${state.id}:session`;
+}
+
+function phaseToMode(phase: PomodoroState["phase"]): PomodoroMode {
+  return phase === "break" ? "break" : "focus";
+}
+
+function isSameRunningPhase(current: PomodoroState | null, expected: PomodoroState): current is PomodoroState {
+  return (
+    current !== null &&
+    current.status === "running" &&
+    current.id === expected.id &&
+    current.phase === expected.phase &&
+    current.currentCycle === expected.currentCycle &&
+    current.phaseStartedAt === expected.phaseStartedAt
+  );
 }
 
 function getFilterStart(filter: StatFilter): string | null {
@@ -199,7 +237,7 @@ function normalizePomodoroState(value: unknown): PomodoroState | null {
   const p = value as Partial<PomodoroState> | null;
   if (!p || typeof p !== "object") return null;
   if (typeof p.id !== "string" || typeof p.subjectId !== "string" || typeof p.subjectName !== "string") return null;
-  const phase = p.phase === "break" ? "break" : "work";
+  const phase = p.phase === "break" || p.mode === "break" ? "break" : "work";
   const workMinutes = typeof p.workMinutes === "number" && p.workMinutes >= 1 ? p.workMinutes : 25;
   const breakMinutes = typeof p.breakMinutes === "number" && p.breakMinutes >= 1 ? p.breakMinutes : 5;
   const totalCycles = typeof p.totalCycles === "number" && p.totalCycles >= 1 ? p.totalCycles : 1;
@@ -207,6 +245,10 @@ function normalizePomodoroState(value: unknown): PomodoroState | null {
     ? Math.min(p.currentCycle, totalCycles)
     : 1;
   const durationSeconds = minutesToSeconds(phase === "work" ? workMinutes : breakMinutes);
+  const maxFocusSeconds = minutesToSeconds(workMinutes) * totalCycles;
+  const accumulatedFocusSeconds = typeof p.accumulatedFocusSeconds === "number"
+    ? Math.max(0, Math.min(maxFocusSeconds, Math.round(p.accumulatedFocusSeconds)))
+    : 0;
   const remainingSeconds = typeof p.remainingSeconds === "number"
     ? Math.max(0, Math.min(durationSeconds, Math.round(p.remainingSeconds)))
     : durationSeconds;
@@ -216,21 +258,42 @@ function normalizePomodoroState(value: unknown): PomodoroState | null {
   const phaseStartedAt = typeof p.phaseStartedAt === "string" && !Number.isNaN(new Date(p.phaseStartedAt).getTime())
     ? p.phaseStartedAt
     : null;
-  const isRunning = p.isRunning === true && phaseStartedAt !== null;
+  const persistedStatus = p.status === "running"
+    ? "running"
+    : p.status === "paused"
+    ? "paused"
+    : p.isRunning === true
+    ? "running"
+    : "paused";
+  const status: Exclude<PomodoroStatus, "idle"> = persistedStatus === "running" && phaseStartedAt !== null
+    ? "running"
+    : "paused";
+  const startedAt = typeof p.startedAt === "string" && !Number.isNaN(new Date(p.startedAt).getTime())
+    ? p.startedAt
+    : phaseStartedAt ?? new Date().toISOString();
+  const pausedAt = status === "paused" && typeof p.pausedAt === "string" && !Number.isNaN(new Date(p.pausedAt).getTime())
+    ? p.pausedAt
+    : null;
 
   return {
     id: p.id,
+    selectedSubjectId: typeof p.selectedSubjectId === "string" ? p.selectedSubjectId : p.subjectId,
     subjectId: p.subjectId,
     subjectName: p.subjectName,
+    mode: phaseToMode(phase),
     phase,
+    status,
     currentCycle,
     totalCycles,
     workMinutes,
     breakMinutes,
+    startedAt,
     phaseStartedAt,
-    pausedRemainingSeconds: isRunning ? null : pausedRemainingSeconds ?? remainingSeconds,
+    pausedAt,
+    pausedRemainingSeconds: status === "running" ? null : pausedRemainingSeconds ?? remainingSeconds,
     remainingSeconds,
-    isRunning,
+    accumulatedFocusSeconds,
+    isRunning: status === "running",
     notificationIds: Array.isArray(p.notificationIds)
       ? p.notificationIds.filter((id): id is string => typeof id === "string")
       : [],
@@ -294,10 +357,31 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   const [lastBackupDate, setLastBackupDateState] = useState<string | null>(null);
   const pomodoroRef = useRef<PomodoroState | null>(null);
   const sessionsRef = useRef<StudySession[]>([]);
+  const savedPomodoroPhaseKeysRef = useRef<Set<string>>(new Set());
   const advanceInFlightRef = useRef(false);
+  const pomodoroIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notificationTokenRef = useRef(0);
 
   useEffect(() => { pomodoroRef.current = pomodoro; }, [pomodoro]);
-  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+  useEffect(() => {
+    sessionsRef.current = sessions;
+    savedPomodoroPhaseKeysRef.current = new Set(
+      sessions
+        .map((session) => session.pomodoroPhaseKey)
+        .filter((key): key is string => typeof key === "string")
+    );
+  }, [sessions]);
+
+  const clearPomodoroInterval = useCallback(() => {
+    if (pomodoroIntervalRef.current !== null) {
+      clearInterval(pomodoroIntervalRef.current);
+      pomodoroIntervalRef.current = null;
+    }
+  }, []);
+
+  const invalidatePendingPomodoroWork = useCallback(() => {
+    notificationTokenRef.current += 1;
+  }, []);
 
   const persistPomodoro = useCallback(async (state: PomodoroState | null) => {
     if (state) await AsyncStorage.setItem(KEYS.POMODORO, JSON.stringify(state));
@@ -320,11 +404,12 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     completedPomodoroCycleCount?: number,
     pomodoroPhaseKey?: string
   ) => {
-    if (pomodoroPhaseKey && sessionsRef.current.some((session) => session.pomodoroPhaseKey === pomodoroPhaseKey)) {
-      return null;
-    }
     const rounded = Math.round(durationMinutes);
     if (rounded < 1) return null;
+    if (pomodoroPhaseKey) {
+      if (savedPomodoroPhaseKeysRef.current.has(pomodoroPhaseKey)) return null;
+      savedPomodoroPhaseKeysRef.current.add(pomodoroPhaseKey);
+    }
     const completedAt = endTime ?? new Date().toISOString();
     const session: StudySession = {
       id: genId(),
@@ -354,6 +439,28 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     return session;
   }, [persistSessions]);
 
+  const savePomodoroFocusSession = useCallback((
+    state: PomodoroState,
+    focusSeconds: number,
+    endTime: string,
+    note?: string
+  ) => {
+    const studiedMinutes = focusSecondsToStudyMinutes(focusSeconds);
+    if (studiedMinutes < 1) return null;
+    return saveSession(
+      state.subjectId,
+      state.subjectName,
+      studiedMinutes,
+      "pomodoro",
+      dateToStr(new Date(endTime)),
+      note,
+      state.startedAt,
+      endTime,
+      getCompletedFocusCycleCount(state, focusSeconds),
+      getPomodoroSessionKey(state)
+    );
+  }, [saveSession]);
+
   const schedulePhaseNotification = useCallback(async (state: PomodoroState): Promise<PomodoroState> => {
     const seconds = getRemainingSeconds(state);
     const isWork = state.phase === "work";
@@ -373,68 +480,77 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     persistPomodoro(state).catch(() => {});
   }, [persistPomodoro]);
 
+  const queuePhaseNotification = useCallback((state: PomodoroState) => {
+    if (state.status !== "running") return;
+    notificationTokenRef.current += 1;
+    const token = notificationTokenRef.current;
+    const previousNotificationIds = new Set(state.notificationIds);
+
+    schedulePhaseNotification(state).then((scheduledState) => {
+      const newNotificationIds = scheduledState.notificationIds.filter((id) => !previousNotificationIds.has(id));
+      const current = pomodoroRef.current;
+      if (notificationTokenRef.current !== token || !isSameRunningPhase(current, state)) {
+        if (newNotificationIds.length > 0) cancelNotifications(newNotificationIds).catch(() => {});
+        return;
+      }
+      setAndPersistPomodoro({
+        ...current,
+        notificationIds: scheduledState.notificationIds,
+      });
+    }).catch(() => {});
+  }, [schedulePhaseNotification, setAndPersistPomodoro]);
+
   const advancePomodoro = useCallback(async () => {
     if (advanceInFlightRef.current) return;
     advanceInFlightRef.current = true;
     try {
       let state = pomodoroRef.current;
-      if (!state || !state.isRunning || !state.phaseStartedAt) return;
+      if (!state || state.status !== "running" || !state.phaseStartedAt) return;
 
       const now = Date.now();
       let changed = false;
       let guard = 0;
 
-      while (state && state.isRunning && state.phaseStartedAt && getRemainingSeconds(state, now) <= 0 && guard < 20) {
+      while (state && state.status === "running" && state.phaseStartedAt && getRemainingSeconds(state, now) <= 0 && guard < 20) {
         guard += 1;
         const phaseStartMs = new Date(state.phaseStartedAt).getTime();
         const durationSeconds = phaseDurationSeconds(state);
         const phaseEnd = new Date(phaseStartMs + durationSeconds * 1000).toISOString();
+        const notificationIdsToCancel = state.notificationIds;
 
         if (state.phase === "work") {
-          const phaseKey = getWorkPhaseKey(state);
-          const alreadyCompleted = state.completedWorkPhaseKeys.includes(phaseKey);
-          const completedWorkPhaseKeys: string[] = alreadyCompleted
-            ? state.completedWorkPhaseKeys
-            : [...state.completedWorkPhaseKeys, phaseKey];
-
-          if (!alreadyCompleted) {
-            saveSession(
-              state.subjectId,
-              state.subjectName,
-              state.workMinutes,
-              "pomodoro",
-              dateToStr(new Date(phaseEnd)),
-              undefined,
-              state.phaseStartedAt,
-              phaseEnd,
-              state.currentCycle,
-              phaseKey
-            );
-          }
+          const nextAccumulatedFocusSeconds: number = state.accumulatedFocusSeconds + durationSeconds;
 
           if (state.currentCycle >= state.totalCycles) {
-            await cancelNotifications(state.notificationIds);
+            if (notificationIdsToCancel.length > 0) cancelNotifications(notificationIdsToCancel).catch(() => {});
+            savePomodoroFocusSession(state, nextAccumulatedFocusSeconds, phaseEnd);
             state = null;
             changed = true;
             break;
           }
 
+          if (notificationIdsToCancel.length > 0) cancelNotifications(notificationIdsToCancel).catch(() => {});
           state = {
             ...state,
+            mode: "break",
             phase: "break",
             phaseStartedAt: phaseEnd,
+            pausedAt: null,
             pausedRemainingSeconds: null,
             remainingSeconds: minutesToSeconds(state.breakMinutes),
+            accumulatedFocusSeconds: nextAccumulatedFocusSeconds,
             notificationIds: [],
-            completedWorkPhaseKeys,
           };
           changed = true;
         } else {
+          if (notificationIdsToCancel.length > 0) cancelNotifications(notificationIdsToCancel).catch(() => {});
           state = {
             ...state,
+            mode: "focus",
             phase: "work",
             currentCycle: state.currentCycle + 1,
             phaseStartedAt: phaseEnd,
+            pausedAt: null,
             pausedRemainingSeconds: null,
             remainingSeconds: minutesToSeconds(state.workMinutes),
             notificationIds: [],
@@ -446,19 +562,21 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       if (state) {
         const next = { ...state, remainingSeconds: getRemainingSeconds(state, Date.now()) };
         if (changed) {
-          const withNotification = await schedulePhaseNotification(next);
-          setAndPersistPomodoro(withNotification);
+          setAndPersistPomodoro(next);
+          queuePhaseNotification(next);
         } else {
           pomodoroRef.current = next;
           setPomodoro(next);
         }
       } else if (changed) {
+        clearPomodoroInterval();
+        invalidatePendingPomodoroWork();
         setAndPersistPomodoro(null);
       }
     } finally {
       advanceInFlightRef.current = false;
     }
-  }, [saveSession, schedulePhaseNotification, setAndPersistPomodoro]);
+  }, [clearPomodoroInterval, invalidatePendingPomodoroWork, queuePhaseNotification, savePomodoroFocusSession, setAndPersistPomodoro]);
 
   useEffect(() => {
     (async () => {
@@ -476,6 +594,11 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         if (sessionsRaw) {
           const restoredSessions = (JSON.parse(sessionsRaw) as unknown[]).map(normalizeSession).filter(Boolean) as StudySession[];
           sessionsRef.current = restoredSessions;
+          savedPomodoroPhaseKeysRef.current = new Set(
+            restoredSessions
+              .map((session) => session.pomodoroPhaseKey)
+              .filter((key): key is string => typeof key === "string")
+          );
           setSessions(restoredSessions);
         }
         if (settingsRaw) setSettings(normalizeSettings(JSON.parse(settingsRaw)));
@@ -484,24 +607,26 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         if (pomodoroRaw) {
           const restored = normalizePomodoroState(JSON.parse(pomodoroRaw));
           if (!restored) return;
-          setPomodoro(restored);
-          pomodoroRef.current = restored;
-          setTimeout(() => advancePomodoro().catch(() => {}), 0);
+          setAndPersistPomodoro(restored);
+          if (restored.status === "running") advancePomodoro().catch(() => {});
         }
       } catch {}
     })();
-  }, [advancePomodoro]);
+  }, [advancePomodoro, setAndPersistPomodoro]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (pomodoroRef.current?.isRunning) advancePomodoro().catch(() => {});
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [advancePomodoro]);
+    clearPomodoroInterval();
+    if (pomodoro?.status === "running") {
+      pomodoroIntervalRef.current = setInterval(() => {
+        if (pomodoroRef.current?.status === "running") advancePomodoro().catch(() => {});
+      }, 1000);
+    }
+    return clearPomodoroInterval;
+  }, [advancePomodoro, clearPomodoroInterval, pomodoro?.id, pomodoro?.phase, pomodoro?.phaseStartedAt, pomodoro?.status]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") advancePomodoro().catch(() => {});
+      if (state === "active" && pomodoroRef.current?.status === "running") advancePomodoro().catch(() => {});
     });
     return () => subscription.remove();
   }, [advancePomodoro]);
@@ -557,103 +682,113 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
   ) => {
     const workMinutes = workMinutesOverride ?? settings.workMinutes;
     const totalCycles = cyclesOverride ?? settings.cycles;
+    const now = new Date().toISOString();
     const state: PomodoroState = {
       id: genId(),
+      selectedSubjectId: subjectId,
       subjectId,
       subjectName,
+      mode: "focus",
       phase: "work",
+      status: "running",
       currentCycle: 1,
       totalCycles,
       workMinutes,
       breakMinutes: settings.breakMinutes,
-      phaseStartedAt: new Date().toISOString(),
+      startedAt: now,
+      phaseStartedAt: now,
+      pausedAt: null,
       pausedRemainingSeconds: null,
       remainingSeconds: minutesToSeconds(workMinutes),
+      accumulatedFocusSeconds: 0,
       isRunning: true,
       notificationIds: [],
       completedWorkPhaseKeys: [],
     };
+    clearPomodoroInterval();
     cancelNotifications(pomodoroRef.current?.notificationIds ?? []).catch(() => {});
-    schedulePhaseNotification(state).then(setAndPersistPomodoro).catch(() => setAndPersistPomodoro(state));
-  }, [schedulePhaseNotification, setAndPersistPomodoro, settings.breakMinutes, settings.cycles, settings.workMinutes]);
+    setAndPersistPomodoro(state);
+    queuePhaseNotification(state);
+  }, [clearPomodoroInterval, queuePhaseNotification, setAndPersistPomodoro, settings.breakMinutes, settings.cycles, settings.workMinutes]);
 
   const pausePomodoro = useCallback(() => {
     const state = pomodoroRef.current;
-    if (!state) return;
+    if (!state || state.status !== "running") return;
+    clearPomodoroInterval();
+    invalidatePendingPomodoroWork();
     const remaining = getRemainingSeconds(state);
     const next: PomodoroState = {
       ...state,
+      status: "paused",
       isRunning: false,
-      phaseStartedAt: state.phaseStartedAt,
+      pausedAt: new Date().toISOString(),
       pausedRemainingSeconds: remaining,
       remainingSeconds: remaining,
+      notificationIds: [],
     };
     cancelNotifications(state.notificationIds).catch(() => {});
-    setAndPersistPomodoro({ ...next, notificationIds: [] });
-  }, [setAndPersistPomodoro]);
+    setAndPersistPomodoro(next);
+  }, [clearPomodoroInterval, invalidatePendingPomodoroWork, setAndPersistPomodoro]);
 
   const resumePomodoro = useCallback(() => {
     const state = pomodoroRef.current;
-    if (!state) return;
+    if (!state || state.status === "running") return;
+    clearPomodoroInterval();
     const remaining = state.pausedRemainingSeconds ?? state.remainingSeconds;
     const elapsedSeconds = phaseDurationSeconds(state) - remaining;
     const phaseStartedAt = new Date(Date.now() - elapsedSeconds * 1000).toISOString();
     const next: PomodoroState = {
       ...state,
+      status: "running",
       isRunning: true,
       phaseStartedAt,
+      pausedAt: null,
       pausedRemainingSeconds: null,
       remainingSeconds: remaining,
       notificationIds: [],
     };
-    schedulePhaseNotification(next).then(setAndPersistPomodoro).catch(() => setAndPersistPomodoro(next));
-  }, [schedulePhaseNotification, setAndPersistPomodoro]);
+    setAndPersistPomodoro(next);
+    queuePhaseNotification(next);
+  }, [clearPomodoroInterval, queuePhaseNotification, setAndPersistPomodoro]);
 
   const getPartialStudySeconds = useCallback(() => {
     const state = pomodoroRef.current;
-    if (!state || state.phase !== "work") return 0;
-    return getElapsedFocusSeconds(state);
+    if (!state) return 0;
+    return getTotalFocusSeconds(state, Date.now(), true);
   }, []);
 
   const getPartialStudyMinutes = useCallback(() => {
     const state = pomodoroRef.current;
-    if (!state || state.phase !== "work") return 0;
+    if (!state) return 0;
     const elapsed = getPartialStudySeconds();
-    return elapsed > 0 ? Math.max(1, Math.round(elapsed / 60)) : 0;
+    return focusSecondsToStudyMinutes(elapsed);
   }, [getPartialStudySeconds]);
 
   const stopPomodoro = useCallback((savePartial = false) => {
     const state = pomodoroRef.current;
     if (!state) return;
+    clearPomodoroInterval();
+    invalidatePendingPomodoroWork();
     pomodoroRef.current = null;
     cancelNotifications(state.notificationIds).catch(() => {});
-    if (savePartial && state.phase === "work") {
-      const elapsedSeconds = Math.max(1, getElapsedFocusSeconds(state));
-      if (elapsedSeconds > 0) {
-        const studiedMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
-        const endTime = new Date().toISOString();
-        saveSession(
-          state.subjectId,
-          state.subjectName,
-          studiedMinutes,
-          "pomodoro",
-          dateToStr(new Date(endTime)),
-          "Partial session",
-          state.phaseStartedAt ?? endTime,
-          endTime,
-          state.currentCycle - 1,
-          `partial:${state.id}:${state.currentCycle}:${state.phaseStartedAt ?? endTime}`
-        );
-      }
+    if (savePartial) {
+      const endTime = new Date().toISOString();
+      const focusSeconds = getTotalFocusSeconds(state, Date.now(), true);
+      savePomodoroFocusSession(state, focusSeconds, endTime, "Partial session");
     }
     setAndPersistPomodoro(null);
-  }, [saveSession, setAndPersistPomodoro]);
+  }, [clearPomodoroInterval, invalidatePendingPomodoroWork, savePomodoroFocusSession, setAndPersistPomodoro]);
 
   const undoLastSession = useCallback(() => {
     if (!lastSavedSession) return;
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== lastSavedSession.id);
       sessionsRef.current = next;
+      savedPomodoroPhaseKeysRef.current = new Set(
+        next
+          .map((session) => session.pomodoroPhaseKey)
+          .filter((key): key is string => typeof key === "string")
+      );
       persistSessions(next).catch(() => {});
       return next;
     });
@@ -676,6 +811,11 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== id);
       sessionsRef.current = next;
+      savedPomodoroPhaseKeysRef.current = new Set(
+        next
+          .map((session) => session.pomodoroPhaseKey)
+          .filter((key): key is string => typeof key === "string")
+      );
       persistSessions(next).catch(() => {});
       return next;
     });
@@ -830,9 +970,16 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     const importedSettings = normalizeSettings(data.settings);
     const importedNotificationSettings = normalizeNotificationSettings(data.notificationSettings);
 
+    clearPomodoroInterval();
+    invalidatePendingPomodoroWork();
     await cancelNotifications(pomodoroRef.current?.notificationIds ?? []);
     setSubjects(importedSubjects);
     sessionsRef.current = importedSessions;
+    savedPomodoroPhaseKeysRef.current = new Set(
+      importedSessions
+        .map((session) => session.pomodoroPhaseKey)
+        .filter((key): key is string => typeof key === "string")
+    );
     setSessions(importedSessions);
     setSettings(importedSettings);
     setNotificationSettingsState(importedNotificationSettings);
@@ -847,12 +994,15 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       saveNotificationSettings(importedNotificationSettings),
       AsyncStorage.removeItem(KEYS.POMODORO),
     ]);
-  }, []);
+  }, [clearPomodoroInterval, invalidatePendingPomodoroWork]);
 
   const resetStudyData = useCallback(async () => {
+    clearPomodoroInterval();
+    invalidatePendingPomodoroWork();
     await cancelNotifications(pomodoroRef.current?.notificationIds ?? []);
     setSubjects([]);
     sessionsRef.current = [];
+    savedPomodoroPhaseKeysRef.current = new Set();
     setSessions([]);
     setSettings({ workMinutes: 25, breakMinutes: 5, cycles: 4 });
     pomodoroRef.current = null;
@@ -864,7 +1014,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.removeItem(KEYS.SETTINGS),
       AsyncStorage.removeItem(KEYS.POMODORO),
     ]);
-  }, []);
+  }, [clearPomodoroInterval, invalidatePendingPomodoroWork]);
 
   return (
     <StudyContext.Provider value={{
