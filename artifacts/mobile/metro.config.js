@@ -1,3 +1,9 @@
 const { getDefaultConfig } = require("expo/metro-config");
+const path = require("path");
 
-module.exports = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname);
+const workspaceRoot = path.resolve(__dirname, "../..");
+
+config.watchFolders = Array.from(new Set([workspaceRoot, ...(config.watchFolders || [])]));
+
+module.exports = config;

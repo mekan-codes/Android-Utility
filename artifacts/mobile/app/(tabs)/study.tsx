@@ -29,10 +29,23 @@ function formatMinutes(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function dateToStr(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getDateStr(daysAgo: number): string {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
-  return d.toISOString().split("T")[0] as string;
+  return dateToStr(d);
+}
+
+function formatDateLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export default function StudyScreen() {
@@ -84,12 +97,13 @@ export default function StudyScreen() {
   const dailyGoal = activeSubjects.reduce((sum, s) => sum + (s.dailyGoalMinutes ?? 0), 0) || 180;
   const remainingGoal = Math.max(0, dailyGoal - todayTotal);
   const isToday = selectedDate === getDateStr(0);
+  const selectedTimeLabel = isToday ? "Today" : formatDateLabel(selectedDate);
   const isStudyFocused = pathname === "/study";
 
   const dateStrip = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    const dateStr = d.toISOString().split("T")[0] as string;
+    const dateStr = dateToStr(d);
     const isSelected = dateStr === selectedDate;
     const dayLabel = i === 6 ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" });
     const hasStudy = sessions.some((s) => s.date === dateStr);
@@ -176,9 +190,9 @@ export default function StudyScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerCopy}>
             <Text style={[styles.headline, { color: colors.foreground }]}>Study</Text>
-            <Text style={[styles.subhead, { color: colors.mutedForeground }]}>
+            <Text style={[styles.subhead, { color: colors.mutedForeground }]} numberOfLines={1}>
               {settings.workMinutes}m focus - {settings.breakMinutes}m break - {settings.cycles} cycles
             </Text>
           </View>
@@ -188,18 +202,20 @@ export default function StudyScreen() {
                 setManualSubjectId(undefined);
                 setShowManual(true);
               }}
-              style={[styles.iconBtn, { backgroundColor: colors.secondary }]}
+              style={[styles.headerActionBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
             >
-              <Feather name="plus-circle" size={20} color={colors.primary} />
+              <Feather name="plus-circle" size={16} color={colors.primary} />
+              <Text style={[styles.headerActionText, { color: colors.primary }]}>Add Time</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowAddSubject(true);
               }}
-              style={[styles.iconBtn, { backgroundColor: colors.primary }]}
+              style={[styles.headerActionBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
             >
-              <Feather name="plus" size={20} color="#fff" />
+              <Feather name="plus" size={16} color="#fff" />
+              <Text style={[styles.headerActionText, { color: "#fff" }]}>Add Subject</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -310,6 +326,7 @@ export default function StudyScreen() {
                 todayMinutes={displayMinutes}
                 weekMinutes={getWeekMinutes(subject.id)}
                 isActive={pomodoro?.subjectId === subject.id}
+                timeLabel={selectedTimeLabel}
                 onStart={() => handleStartSubject(subject.id, subject.name)}
                 onStart25={() => handleStartSubject(subject.id, subject.name, 25)}
                 onStart50={() => handleStartSubject(subject.id, subject.name, 50)}
@@ -392,10 +409,21 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 14,
   },
+  headerCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
   headline: { fontSize: 28, fontFamily: "Inter_700Bold" },
   subhead: { fontSize: 12, fontFamily: "Inter_500Medium", marginTop: 2 },
   headerActions: { flexDirection: "row", gap: 8, marginTop: 4 },
-  iconBtn: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  headerActionBtn: {
+    minHeight: 40,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  headerActionText: { fontSize: 12, fontFamily: "Inter_700Bold" },
   goalPanel: {
     flexDirection: "row",
     borderWidth: 1,

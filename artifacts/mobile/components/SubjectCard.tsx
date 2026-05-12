@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 
@@ -12,6 +12,7 @@ interface SubjectCardProps {
   todayMinutes: number;
   weekMinutes: number;
   isActive: boolean;
+  timeLabel?: string;
   onStart: () => void;
   onStart25?: () => void;
   onStart50?: () => void;
@@ -36,6 +37,7 @@ export default function SubjectCard({
   todayMinutes,
   weekMinutes,
   isActive,
+  timeLabel = "Today",
   onStart,
   onStart25,
   onStart50,
@@ -62,9 +64,28 @@ export default function SubjectCard({
     setActionsVisible(true);
   };
 
+  const handleMenuPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActionsVisible(true);
+  };
+
   const runAction = (action: () => void) => {
     setActionsVisible(false);
     setTimeout(action, 160);
+  };
+
+  const confirmDelete = () => {
+    setActionsVisible(false);
+    setTimeout(() => {
+      Alert.alert(
+        `Delete ${name}?`,
+        "This will remove the subject. Existing study sessions will stay in history.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: onDelete },
+        ]
+      );
+    }, 160);
   };
 
   return (
@@ -86,10 +107,23 @@ export default function SubjectCard({
         <View style={[styles.colorBar, { backgroundColor: color }]} />
 
         <View style={styles.content}>
-          <Text style={[styles.name, { color: colors.foreground }]}>{name}</Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>{name}</Text>
+            <TouchableOpacity
+              onPress={handleMenuPress}
+              style={[styles.menuBtn, { backgroundColor: colors.muted }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${name} actions`}
+            >
+              <Feather name="more-horizontal" size={18} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Today</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {timeLabel}
+              </Text>
               <Text style={[styles.statValue, { color: todayMinutes > 0 ? color : colors.mutedForeground }]}>
                 {formatMinutes(todayMinutes)}
               </Text>
@@ -151,14 +185,14 @@ export default function SubjectCard({
               <Text style={[styles.actionText, { color: colors.foreground }]}>Edit Subject</Text>
             </TouchableOpacity>
             {onArchive ? (
-              <TouchableOpacity onPress={() => runAction(onArchive)} style={[styles.actionButton, { backgroundColor: colors.muted }]}>
-                <Feather name="archive" size={16} color={colors.foreground} />
-                <Text style={[styles.actionText, { color: colors.foreground }]}>Archive</Text>
+              <TouchableOpacity onPress={() => runAction(onArchive)} style={[styles.actionButton, { backgroundColor: colors.primary + "15" }]}>
+                <Feather name="archive" size={16} color={colors.primary} />
+                <Text style={[styles.actionText, { color: colors.primary }]}>Archive Subject</Text>
               </TouchableOpacity>
             ) : null}
-            <TouchableOpacity onPress={() => runAction(onDelete)} style={[styles.actionButton, { backgroundColor: colors.destructive + "15" }]}>
+            <TouchableOpacity onPress={confirmDelete} style={[styles.actionButton, { backgroundColor: colors.destructive + "15" }]}>
               <Feather name="trash-2" size={16} color={colors.destructive} />
-              <Text style={[styles.actionText, { color: colors.destructive }]}>Delete</Text>
+              <Text style={[styles.actionText, { color: colors.destructive }]}>Delete Subject</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setActionsVisible(false)} style={[styles.cancelButton, { borderColor: colors.border }]}>
               <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
@@ -193,10 +227,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 6,
   },
-  name: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  name: { fontSize: 15, fontFamily: "Inter_600SemiBold", flex: 1 },
+  menuBtn: { width: 30, height: 30, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   statsRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   statItem: { alignItems: "flex-start" },
-  statLabel: { fontSize: 10, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.4 },
+  statLabel: { fontSize: 10, fontFamily: "Inter_500Medium", textTransform: "uppercase" },
   statValue: { fontSize: 14, fontFamily: "Inter_700Bold" },
   divider: { width: 1, height: 24 },
   startBtn: {
