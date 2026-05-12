@@ -507,21 +507,38 @@ export function RoutineProvider({ children }: { children: React.ReactNode }) {
     const importedTemp = Array.isArray(data.tempTasks)
       ? data.tempTasks.map(normalizeTempTask).filter(Boolean) as TempTask[]
       : [];
+    const today = getTodayStr();
 
     await cancelNotifications([
       ...dailyTasks.map((t) => t.notificationId),
       ...allTempTasks.map((t) => t.notificationId),
     ]);
 
-    setDailyTasks(importedDaily.map((t) => ({ ...t, notificationId: null })));
-    setAllTempTasks(importedTemp.map((t) => ({ ...t, notificationId: null })));
+    const dailyWithoutNotifications = importedDaily.map((t) => ({ ...t, notificationId: null }));
+    const tempWithoutNotifications = importedTemp.map((t) => ({ ...t, notificationId: null }));
+    const scheduledDaily = await Promise.all(
+      dailyWithoutNotifications.map(async (task) => ({
+        ...task,
+        notificationId: await scheduleForTask(task, today),
+      }))
+    );
+    const scheduledTemp = await Promise.all(
+      tempWithoutNotifications.map(async (task) => ({
+        ...task,
+        notificationId: task.date === today ? await scheduleForTask(task, task.date) : null,
+      }))
+    );
+
+    setCurrentDate(today);
+    setDailyTasks(scheduledDaily);
+    setAllTempTasks(scheduledTemp);
     setCarryForwardTasks([]);
     await Promise.all([
-      persistDaily(importedDaily.map((t) => ({ ...t, notificationId: null }))),
-      persistTemp(importedTemp.map((t) => ({ ...t, notificationId: null }))),
-      AsyncStorage.setItem(KEYS.RESET_DATE, getTodayStr()),
+      persistDaily(scheduledDaily),
+      persistTemp(scheduledTemp),
+      AsyncStorage.setItem(KEYS.RESET_DATE, today),
     ]);
-  }, [allTempTasks, dailyTasks]);
+  }, [allTempTasks, dailyTasks, scheduleForTask]);
 
   const resetRoutineData = useCallback(async () => {
     await cancelNotifications([

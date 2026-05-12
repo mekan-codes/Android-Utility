@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -58,90 +59,103 @@ export default function AddTaskModal({ visible, type, onClose, onAdd }: AddTaskM
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <Pressable style={styles.overlay} onPress={handleClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kavWrapper}>
-          <Pressable style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.title, { color: colors.foreground }]}>
-              {type === "daily" ? "Add Daily Task" : "Add Task for Today"}
-            </Text>
-            {type === "temp" && (
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                This task disappears after today unless you move it forward.
-              </Text>
-            )}
-
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
-              placeholder="Task name"
-              placeholderTextColor={colors.mutedForeground}
-              value={name}
-              onChangeText={setName}
-              autoFocus
-              returnKeyType="next"
-              onSubmitEditing={handleAdd}
-            />
-
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
-              placeholder="Deadline, optional (22:00)"
-              placeholderTextColor={colors.mutedForeground}
-              value={deadline}
-              onChangeText={setDeadline}
-              returnKeyType="done"
-              onSubmitEditing={handleAdd}
-            />
-
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>Reminder</Text>
-            <View style={styles.reminderRow}>
-              {REMINDER_OPTIONS.map((option) => {
-                const active = reminderOffsetMinutes === option.value;
-                return (
-                  <TouchableOpacity
-                    key={option.label}
-                    onPress={() => setReminderOffsetMinutes(option.value)}
-                    style={[
-                      styles.reminderChip,
-                      {
-                        backgroundColor: active ? colors.primary : colors.muted,
-                        borderColor: active ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.reminderChipText, { color: active ? "#fff" : colors.mutedForeground }]}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: name.trim() ? colors.primary : colors.muted }]}
-              onPress={handleAdd}
-              disabled={!name.trim()}
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={handleClose} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "position"}
+          style={styles.kavWrapper}
+          contentContainerStyle={styles.kavContent}
+        >
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 16 }]}
             >
-              <Text style={[styles.addBtnText, { color: name.trim() ? colors.primaryForeground : colors.mutedForeground }]}>
-                Add Task
+              <View style={[styles.handle, { backgroundColor: colors.border }]} />
+              <Text style={[styles.title, { color: colors.foreground }]}>
+                {type === "daily" ? "Add Daily Task" : "Add Task for Today"}
               </Text>
-            </TouchableOpacity>
-          </Pressable>
+              {type === "temp" && (
+                <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                  This task disappears after today unless you move it forward.
+                </Text>
+              )}
+
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
+                placeholder="Task name"
+                placeholderTextColor={colors.mutedForeground}
+                value={name}
+                onChangeText={setName}
+                autoFocus
+                returnKeyType="next"
+                onSubmitEditing={handleAdd}
+              />
+
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.input, color: colors.foreground }]}
+                placeholder="Deadline, optional (22:00)"
+                placeholderTextColor={colors.mutedForeground}
+                value={deadline}
+                onChangeText={setDeadline}
+                returnKeyType="done"
+                onSubmitEditing={handleAdd}
+              />
+
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>Reminder</Text>
+              <View style={styles.reminderRow}>
+                {REMINDER_OPTIONS.map((option) => {
+                  const active = reminderOffsetMinutes === option.value;
+                  return (
+                    <TouchableOpacity
+                      key={option.label}
+                      onPress={() => setReminderOffsetMinutes(option.value)}
+                      style={[
+                        styles.reminderChip,
+                        {
+                          backgroundColor: active ? colors.primary : colors.muted,
+                          borderColor: active ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.reminderChipText, { color: active ? "#fff" : colors.mutedForeground }]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.addBtn, { backgroundColor: name.trim() ? colors.primary : colors.muted }]}
+                onPress={handleAdd}
+                disabled={!name.trim()}
+              >
+                <Text style={[styles.addBtnText, { color: name.trim() ? colors.primaryForeground : colors.mutedForeground }]}>
+                  Add Task
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
-  kavWrapper: { justifyContent: "flex-end" },
+  backdrop: { ...StyleSheet.absoluteFillObject },
+  kavWrapper: { flex: 1, justifyContent: "flex-end" },
+  kavContent: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    gap: 12,
+    maxHeight: "92%",
+    overflow: "hidden",
   },
+  sheetContent: { paddingTop: 12, paddingHorizontal: 20, gap: 12 },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 8 },
   title: { fontSize: 18, fontFamily: "Inter_700Bold" },
   subtitle: { fontSize: 13, fontFamily: "Inter_400Regular", marginTop: -6 },

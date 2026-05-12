@@ -43,7 +43,10 @@ type BackupData = {
 };
 
 function toDateFilePart() {
-  return new Date().toISOString().split("T")[0] as string;
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
 function normalizeBackup(raw: unknown): BackupData | null {
@@ -161,6 +164,7 @@ export default function SettingsScreen() {
     rescheduleTaskNotifications,
     dailyTasks,
     tempTasks,
+    allTempTasks,
   } = useRoutine();
 
   const [workInput, setWorkInput] = useState(String(settings.workMinutes));
@@ -239,8 +243,12 @@ export default function SettingsScreen() {
       if (Platform.OS === "web") {
         Alert.alert("Export unavailable", "Use the Android app to create a backup file.");
       } else {
+        const cacheDirectory = FileSystem.cacheDirectory;
+        if (!cacheDirectory) {
+          throw new Error("Backup storage is unavailable.");
+        }
         const fileName = `resetflow_backup_${now}.json`;
-        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+        const fileUri = `${cacheDirectory}${fileName}`;
         await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(exportObj, null, 2), {
           encoding: FileSystem.EncodingType.UTF8,
         });
@@ -252,9 +260,10 @@ export default function SettingsScreen() {
         });
         setLastBackupDate(now);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Backup Exported", "A JSON backup file was created and the share sheet was opened.");
       }
-    } catch {
-      Alert.alert("Export Failed", "Could not create the backup file.");
+    } catch (error) {
+      Alert.alert("Export Failed", error instanceof Error ? error.message : "Could not create the backup file.");
     } finally {
       setExporting(false);
     }
@@ -313,8 +322,10 @@ export default function SettingsScreen() {
             text: "Import",
             onPress: async () => {
               setImporting(true);
+              const routineSnapshot = { dailyTasks, tempTasks: allTempTasks };
+              const studySnapshot = { subjects, sessions, settings, notificationSettings };
+              const themeSnapshot = themePreference;
               try {
-                await importRoutineData({ dailyTasks: backup.tasks, tempTasks: backup.tempTasks });
                 await importStudyData({
                   subjects: backup.subjects,
                   sessions: backup.studySessions,
@@ -326,10 +337,15 @@ export default function SettingsScreen() {
                 });
                 const pref = backup.settings.themePreference;
                 if (pref === "light" || pref === "dark" || pref === "system") setThemePreference(pref);
-                await rescheduleTaskNotifications();
+                await importRoutineData({ dailyTasks: backup.tasks, tempTasks: backup.tempTasks });
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 Alert.alert("Imported", "Backup restored successfully.");
               } catch {
+                try {
+                  await importStudyData(studySnapshot);
+                  await importRoutineData(routineSnapshot);
+                  setThemePreference(themeSnapshot);
+                } catch {}
                 Alert.alert("Import Failed", "Nothing was changed. Please check the backup file and try again.");
               } finally {
                 setImporting(false);
@@ -568,7 +584,7 @@ export default function SettingsScreen() {
         <Section title="About" icon="info">
           <Row label="App" right={<Text style={[styles.rowValue, { color: colors.mutedForeground }]}>ResetFlow</Text>} />
           <Separator />
-          <Row label="Version" right={<Text style={[styles.rowValue, { color: colors.mutedForeground }]}>1.0.0</Text>} />
+          <Row label="Version" right={<Text style={[styles.rowValue, { color: colors.mutedForeground }]}>1.0.1</Text>} />
           <Separator />
           <Row label="Network" right={<Text style={[styles.rowValue, { color: colors.success }]}>Offline</Text>} />
         </Section>

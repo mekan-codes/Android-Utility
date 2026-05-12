@@ -2,7 +2,7 @@
   "expo": {
     "name": "ResetFlow",
     "slug": "mobile",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.mekan.resetflow",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#111827"

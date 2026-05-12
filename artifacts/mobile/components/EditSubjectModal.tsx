@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -54,58 +55,72 @@ export default function EditSubjectModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.kavWrapper}>
-          <Pressable style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.handle} />
-            <Text style={[styles.title, { color: colors.foreground }]}>Edit Subject</Text>
-
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: 10 }]}
-              placeholder="Subject name"
-              placeholderTextColor={colors.mutedForeground}
-              value={name}
-              onChangeText={setName}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleSave}
-            />
-
-            <Text style={[styles.colorLabel, { color: colors.mutedForeground }]}>Color</Text>
-            <View style={styles.colorRow}>
-              {SUBJECT_COLORS.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setSelectedColor(c)}
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: c },
-                    selectedColor === c && styles.colorDotSelected,
-                  ]}
-                />
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: name.trim() ? selectedColor : colors.muted, borderRadius: 12 }]}
-              onPress={handleSave}
-              disabled={!name.trim()}
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "position"}
+          style={styles.kavWrapper}
+          contentContainerStyle={styles.kavContent}
+        >
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 16 }]}
             >
-              <Text style={[styles.saveBtnText, { color: name.trim() ? "#fff" : colors.mutedForeground }]}>
-                Save Changes
-              </Text>
-            </TouchableOpacity>
-          </Pressable>
+              <View style={styles.handle} />
+              <Text style={[styles.title, { color: colors.foreground }]}>Edit Subject</Text>
+
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderRadius: 10 }]}
+                placeholder="Subject name"
+                placeholderTextColor={colors.mutedForeground}
+                value={name}
+                onChangeText={setName}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
+              />
+
+              <Text style={[styles.colorLabel, { color: colors.mutedForeground }]}>Color</Text>
+              <View style={styles.colorRow}>
+                {SUBJECT_COLORS.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    onPress={() => setSelectedColor(c)}
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: c },
+                      selectedColor === c && styles.colorDotSelected,
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: name.trim() ? selectedColor : colors.muted, borderRadius: 12 }]}
+                onPress={handleSave}
+                disabled={!name.trim()}
+              >
+                <Text style={[styles.saveBtnText, { color: name.trim() ? "#fff" : colors.mutedForeground }]}>
+                  Save Changes
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
-  kavWrapper: { justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 12, paddingHorizontal: 20, gap: 12 },
+  backdrop: { ...StyleSheet.absoluteFillObject },
+  kavWrapper: { flex: 1, justifyContent: "flex-end" },
+  kavContent: { flex: 1, justifyContent: "flex-end" },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "92%", overflow: "hidden" },
+  sheetContent: { paddingTop: 12, paddingHorizontal: 20, gap: 12 },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#D1D5DB", alignSelf: "center", marginBottom: 8 },
   title: { fontSize: 18, fontFamily: "Inter_700Bold" },
   input: { paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: "Inter_400Regular" },

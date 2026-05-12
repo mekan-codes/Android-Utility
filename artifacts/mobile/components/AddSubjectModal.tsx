@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -56,91 +57,82 @@ export default function AddSubjectModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
-    >
-      <Pressable style={styles.overlay} onPress={handleClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={handleClose} />
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : "position"}
           style={styles.kavWrapper}
+          contentContainerStyle={styles.kavContent}
         >
-          <Pressable
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: colors.card,
-                paddingBottom: insets.bottom + 16,
-              },
-            ]}
-          >
-            <View style={styles.handle} />
-            <Text style={[styles.title, { color: colors.foreground }]}>
-              New Subject
-            </Text>
-
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.muted,
-                  color: colors.foreground,
-                  borderRadius: 10,
-                },
-              ]}
-              placeholder="Subject name (e.g. Math, English)"
-              placeholderTextColor={colors.mutedForeground}
-              value={name}
-              onChangeText={setName}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleAdd}
-            />
-
-            <Text style={[styles.colorLabel, { color: colors.mutedForeground }]}>
-              Color
-            </Text>
-            <View style={styles.colorRow}>
-              {SUBJECT_COLORS.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setSelectedColor(c)}
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: c },
-                    selectedColor === c && styles.colorDotSelected,
-                  ]}
-                />
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.addBtn,
-                {
-                  backgroundColor: name.trim() ? selectedColor : colors.muted,
-                  borderRadius: 12,
-                },
-              ]}
-              onPress={handleAdd}
-              disabled={!name.trim()}
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 16 }]}
             >
-              <Text
+              <View style={styles.handle} />
+              <Text style={[styles.title, { color: colors.foreground }]}>New Subject</Text>
+
+              <TextInput
                 style={[
-                  styles.addBtnText,
+                  styles.input,
                   {
-                    color: name.trim() ? "#fff" : colors.mutedForeground,
+                    backgroundColor: colors.muted,
+                    color: colors.foreground,
+                    borderRadius: 10,
                   },
                 ]}
+                placeholder="Subject name (e.g. Math, English)"
+                placeholderTextColor={colors.mutedForeground}
+                value={name}
+                onChangeText={setName}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleAdd}
+              />
+
+              <Text style={[styles.colorLabel, { color: colors.mutedForeground }]}>Color</Text>
+              <View style={styles.colorRow}>
+                {SUBJECT_COLORS.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    onPress={() => setSelectedColor(c)}
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: c },
+                      selectedColor === c && styles.colorDotSelected,
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.addBtn,
+                  {
+                    backgroundColor: name.trim() ? selectedColor : colors.muted,
+                    borderRadius: 12,
+                  },
+                ]}
+                onPress={handleAdd}
+                disabled={!name.trim()}
               >
-                Add Subject
-              </Text>
-            </TouchableOpacity>
-          </Pressable>
+                <Text
+                  style={[
+                    styles.addBtnText,
+                    {
+                      color: name.trim() ? "#fff" : colors.mutedForeground,
+                    },
+                  ]}
+                >
+                  Add Subject
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
@@ -151,12 +143,24 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.35)",
     justifyContent: "flex-end",
   },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
   kavWrapper: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  kavContent: {
+    flex: 1,
     justifyContent: "flex-end",
   },
   sheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    maxHeight: "92%",
+    overflow: "hidden",
+  },
+  sheetContent: {
     paddingTop: 12,
     paddingHorizontal: 20,
     gap: 12,

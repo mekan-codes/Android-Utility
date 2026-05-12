@@ -49,7 +49,7 @@ export default function StudyScreen() {
     pausePomodoro,
     resumePomodoro,
     stopPomodoro,
-    getPartialStudyMinutes,
+    getPartialStudySeconds,
     undoLastSession,
     addManualSession,
     getTodayMinutes,
@@ -84,13 +84,33 @@ export default function StudyScreen() {
   });
 
   const confirmStop = (onAfterStop?: () => void) => {
-    const partial = getPartialStudyMinutes();
+    if (!pomodoro) return;
+
+    if (pomodoro.phase === "break") {
+      Alert.alert(
+        "Stop Session?",
+        "Break time is not saved. Stop session?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Stop", style: "destructive", onPress: () => { stopPomodoro(false); onAfterStop?.(); } },
+        ]
+      );
+      return;
+    }
+
+    const elapsedSeconds = getPartialStudySeconds();
+    const elapsedMinutes = Math.max(1, Math.round(elapsedSeconds / 60));
     Alert.alert(
-      "Stop Session?",
-      partial >= 1 ? `Save ${partial}m of study time?` : "No study time will be saved.",
+      "Save partial session?",
+      elapsedSeconds < 60
+        ? "Less than 1 minute studied. Save as 1 minute?"
+        : `Save ${elapsedMinutes}m of study time?`,
       [
         { text: "Cancel", style: "cancel" },
-        ...(partial >= 1 ? [{ text: "Save", onPress: () => { stopPomodoro(true); onAfterStop?.(); } }] : []),
+        {
+          text: elapsedSeconds < 60 ? "Save 1m" : "Save",
+          onPress: () => { stopPomodoro(true); onAfterStop?.(); },
+        },
         { text: "Discard", style: "destructive", onPress: () => { stopPomodoro(false); onAfterStop?.(); } },
       ]
     );

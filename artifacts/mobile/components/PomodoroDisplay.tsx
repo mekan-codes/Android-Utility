@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   cycleBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   cycleText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   subjectName: { fontSize: 13, fontFamily: "Inter_500Medium" },
-  timer: { fontSize: 56, fontFamily: "Inter_700Bold", letterSpacing: -2, lineHeight: 64 },
+  timer: { fontSize: 56, fontFamily: "Inter_700Bold", letterSpacing: 0, lineHeight: 64 },
   pausedLabel: { fontSize: 13, fontFamily: "Inter_500Medium" },
   controls: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 8 },
   controlBtn: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
