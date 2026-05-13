@@ -59,12 +59,13 @@ export default function EditSubjectModal({
         <Pressable style={styles.backdrop} onPress={onClose} />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "position"}
+          pointerEvents="box-none"
           style={styles.kavWrapper}
           contentContainerStyle={styles.kavContent}
         >
           <View style={[styles.sheet, { backgroundColor: colors.card }]}>
             <ScrollView
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 16 }]}
             >
@@ -116,15 +117,15 @@ export default function EditSubjectModal({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
-  backdrop: { ...StyleSheet.absoluteFillObject },
-  kavWrapper: { flex: 1, justifyContent: "flex-end" },
+  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
+  kavWrapper: { flex: 1, justifyContent: "flex-end", zIndex: 1 },
   kavContent: { flex: 1, justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "92%", overflow: "hidden" },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "92%", overflow: "hidden", elevation: 8 },
   sheetContent: { paddingTop: 12, paddingHorizontal: 20, gap: 12 },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#D1D5DB", alignSelf: "center", marginBottom: 8 },
   title: { fontSize: 18, fontFamily: "Inter_700Bold" },
   input: { paddingHorizontal: 14, paddingVertical: 13, fontSize: 15, fontFamily: "Inter_400Regular" },
-  colorLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: -4 },
+  colorLabel: { fontSize: 12, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0, marginBottom: -4 },
   colorRow: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   colorDot: { width: 32, height: 32, borderRadius: 16 },
   colorDotSelected: {

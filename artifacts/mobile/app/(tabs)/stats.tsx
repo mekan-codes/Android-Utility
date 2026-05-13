@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
+import BrandMark from "@/components/BrandMark";
 import { StatFilter, StudySession, Subject, useStudy } from "@/context/StudyContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -957,7 +958,13 @@ export default function StatsScreen() {
         contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: bottomPad + 110 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.headline, { color: colors.foreground }]}>Stats</Text>
+        <View style={styles.header}>
+          <BrandMark size={46} />
+          <View style={styles.headerCopy}>
+            <Text style={[styles.headline, { color: colors.foreground }]}>Stats</Text>
+            <Text style={[styles.subhead, { color: colors.mutedForeground }]}>{getRangeLabel(activeFilter)}</Text>
+          </View>
+        </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterRow}>
           {FILTERS.map((filter) => (
@@ -1064,16 +1071,29 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 18 },
-  headline: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 14 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headline: { fontSize: 29, fontFamily: "Inter_700Bold", letterSpacing: 0 },
+  subhead: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 2 },
   filterScroll: { marginBottom: 14 },
   filterRow: { flexDirection: "row", gap: 8 },
-  filterTab: { paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderRadius: 10 },
+  filterTab: { paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderRadius: 12 },
   filterTabText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  card: { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 14, gap: 12 },
+  card: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 14,
+    gap: 12,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 1,
+  },
   cardTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
   insightsCard: { gap: 14 },
   insightsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  headerCopy: { flex: 1, minWidth: 0 },
   insightsTitle: { fontSize: 18, marginBottom: 2 },
   rangeLabel: { fontSize: 12, fontFamily: "Inter_500Medium" },
   totalPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },

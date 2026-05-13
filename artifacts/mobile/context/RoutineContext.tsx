@@ -50,6 +50,13 @@ export function getTomorrowStr(): string {
   return formatLocalDate(d);
 }
 
+function getNextDailyResetDelayMs(now = new Date()): number {
+  const nextReset = new Date(now);
+  nextReset.setDate(nextReset.getDate() + 1);
+  nextReset.setHours(0, 0, 1, 0);
+  return Math.max(1000, nextReset.getTime() - now.getTime());
+}
+
 export function deadlineToMinutes(deadline?: string): number | null {
   if (!deadline) return null;
   const match = deadline.trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -238,7 +245,7 @@ export function RoutineProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem(KEYS.RESET_DATE, today),
       ]);
 
-      if (unfinishedOld.length > 0) setCarryForwardTasks(unfinishedOld);
+      setCarryForwardTasks(unfinishedOld);
     }
 
     setDailyTasks(daily);
@@ -254,6 +261,26 @@ export function RoutineProvider({ children }: { children: React.ReactNode }) {
       if (state === "active") runDailyReset().catch(() => {});
     });
     return () => subscription.remove();
+  }, [runDailyReset]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNextReset = () => {
+      timeout = setTimeout(() => {
+        runDailyReset().catch(() => {}).finally(() => {
+          if (!cancelled) scheduleNextReset();
+        });
+      }, getNextDailyResetDelayMs());
+    };
+
+    scheduleNextReset();
+
+    return () => {
+      cancelled = true;
+      if (timeout) clearTimeout(timeout);
+    };
   }, [runDailyReset]);
 
   const updateDaily = useCallback((updater: (prev: DailyTask[]) => DailyTask[]) => {
@@ -371,8 +398,14 @@ export function RoutineProvider({ children }: { children: React.ReactNode }) {
       edited = {
         ...t,
         ...updates,
-        deadline: isValidDeadline(updates.deadline) ? updates.deadline : undefined,
-        reminderOffsetMinutes: normalizeReminder(updates.reminderOffsetMinutes),
+        deadline:
+          "deadline" in updates
+            ? isValidDeadline(updates.deadline) ? updates.deadline : undefined
+            : t.deadline,
+        reminderOffsetMinutes:
+          "reminderOffsetMinutes" in updates
+            ? normalizeReminder(updates.reminderOffsetMinutes)
+            : t.reminderOffsetMinutes,
         notificationId: null,
       };
       return edited;
@@ -445,8 +478,14 @@ export function RoutineProvider({ children }: { children: React.ReactNode }) {
       edited = {
         ...t,
         ...updates,
-        deadline: isValidDeadline(updates.deadline) ? updates.deadline : undefined,
-        reminderOffsetMinutes: normalizeReminder(updates.reminderOffsetMinutes),
+        deadline:
+          "deadline" in updates
+            ? isValidDeadline(updates.deadline) ? updates.deadline : undefined
+            : t.deadline,
+        reminderOffsetMinutes:
+          "reminderOffsetMinutes" in updates
+            ? normalizeReminder(updates.reminderOffsetMinutes)
+            : t.reminderOffsetMinutes,
         notificationId: null,
       };
       return edited;
@@ -462,12 +501,20 @@ export function RoutineProvider({ children }: { children: React.ReactNode }) {
 
   const moveTempToTomorrow = useCallback((id: string) => {
     const tomorrow = getTomorrowStr();
+    let moved: TempTask | undefined;
     updateTemp((prev) => prev.map((t) => {
       if (t.id !== id) return t;
       cancelNotification(t.notificationId).catch(() => {});
-      return { ...t, date: tomorrow, isDone: false, completedAt: null, notificationId: null };
+      moved = { ...t, date: tomorrow, isDone: false, completedAt: null, notificationId: null };
+      return moved;
     }));
-  }, [updateTemp]);
+    setTimeout(() => {
+      if (!moved) return;
+      scheduleForTask(moved, tomorrow).then((notificationId) => {
+        if (notificationId) updateTemp((prev) => prev.map((t) => t.id === id ? { ...t, notificationId } : t));
+      });
+    }, 0);
+  }, [scheduleForTask, updateTemp]);
 
   const rescheduleTaskNotifications = useCallback(async () => {
     const settings = await loadNotificationSettings();

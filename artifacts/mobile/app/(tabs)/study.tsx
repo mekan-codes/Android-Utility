@@ -10,10 +10,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AddSubjectModal from "@/components/AddSubjectModal";
+import BrandMark from "@/components/BrandMark";
 import EditSubjectModal from "@/components/EditSubjectModal";
 import ManualSessionModal from "@/components/ManualSessionModal";
 import PomodoroDisplay from "@/components/PomodoroDisplay";
@@ -52,6 +54,7 @@ export default function StudyScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const { width } = useWindowDimensions();
   const {
     activeSubjects,
     sessions,
@@ -99,6 +102,7 @@ export default function StudyScreen() {
   const isToday = selectedDate === getDateStr(0);
   const selectedTimeLabel = isToday ? "Today" : formatDateLabel(selectedDate);
   const isStudyFocused = pathname === "/study";
+  const compactHeader = width < 430;
 
   const dateStrip = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -189,20 +193,27 @@ export default function StudyScreen() {
         contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: bottomPad + 110 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={[styles.headline, { color: colors.foreground }]}>Study</Text>
-            <Text style={[styles.subhead, { color: colors.mutedForeground }]} numberOfLines={1}>
-              {settings.workMinutes}m focus - {settings.breakMinutes}m break - {settings.cycles} cycles
-            </Text>
+        <View style={[styles.header, compactHeader && styles.headerCompact]}>
+          <View style={styles.titleCluster}>
+            <BrandMark size={46} />
+            <View style={styles.headerCopy}>
+              <Text style={[styles.headline, { color: colors.foreground }]} numberOfLines={1}>Study</Text>
+              <Text style={[styles.subhead, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {settings.workMinutes}m focus - {settings.breakMinutes}m break - {settings.cycles} cycles
+              </Text>
+            </View>
           </View>
-          <View style={styles.headerActions}>
+          <View style={[styles.headerActions, compactHeader && styles.headerActionsCompact]}>
             <TouchableOpacity
               onPress={() => {
                 setManualSubjectId(undefined);
                 setShowManual(true);
               }}
-              style={[styles.headerActionBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+              style={[
+                styles.headerActionBtn,
+                compactHeader && styles.headerActionBtnCompact,
+                { backgroundColor: colors.secondary, borderColor: colors.border },
+              ]}
             >
               <Feather name="plus-circle" size={16} color={colors.primary} />
               <Text style={[styles.headerActionText, { color: colors.primary }]}>Add Time</Text>
@@ -212,7 +223,11 @@ export default function StudyScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowAddSubject(true);
               }}
-              style={[styles.headerActionBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              style={[
+                styles.headerActionBtn,
+                compactHeader && styles.headerActionBtnCompact,
+                { backgroundColor: colors.primary, borderColor: colors.primary },
+              ]}
             >
               <Feather name="plus" size={16} color="#fff" />
               <Text style={[styles.headerActionText, { color: "#fff" }]}>Add Subject</Text>
@@ -406,30 +421,40 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 14,
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 12,
   },
-  headerCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
-  headline: { fontSize: 28, fontFamily: "Inter_700Bold" },
-  subhead: { fontSize: 12, fontFamily: "Inter_500Medium", marginTop: 2 },
-  headerActions: { flexDirection: "row", gap: 8, marginTop: 4 },
+  headerCompact: { flexDirection: "column", alignItems: "stretch", gap: 12 },
+  titleCluster: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headline: { fontSize: 29, fontFamily: "Inter_700Bold", letterSpacing: 0 },
+  subhead: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 2 },
+  headerActions: { flexDirection: "row", gap: 8 },
+  headerActionsCompact: { width: "100%" },
   headerActionBtn: {
     minHeight: 40,
     paddingHorizontal: 10,
-    borderRadius: 10,
+    borderRadius: 13,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 6,
   },
+  headerActionBtnCompact: { flex: 1, minHeight: 46, borderRadius: 14 },
   headerActionText: { fontSize: 12, fontFamily: "Inter_700Bold" },
   goalPanel: {
     flexDirection: "row",
     borderWidth: 1,
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 13,
     marginBottom: 12,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   goalItem: { flex: 1, alignItems: "center", gap: 3 },
   goalDivider: { width: StyleSheet.hairlineWidth },
@@ -476,12 +501,13 @@ const styles = StyleSheet.create({
   emptyBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, marginTop: 8 },
   emptyBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#fff" },
   dialogOverlay: { flex: 1, justifyContent: "center", padding: 22, backgroundColor: "rgba(0,0,0,0.42)" },
-  dialogBackdrop: { ...StyleSheet.absoluteFillObject },
+  dialogBackdrop: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
   dialogCard: {
     borderRadius: 18,
     borderWidth: 1,
     padding: 18,
     gap: 12,
+    zIndex: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,

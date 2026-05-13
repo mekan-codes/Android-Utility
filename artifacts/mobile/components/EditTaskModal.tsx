@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { isValidDeadline } from "@/context/RoutineContext";
 import { useColors } from "@/hooks/useColors";
 import { ReminderOffsetMinutes } from "@/utils/notifications";
 
@@ -59,6 +61,10 @@ export default function EditTaskModal({
     const trimmed = name.trim();
     const deadlineValue = deadline.trim();
     if (!trimmed) return;
+    if (deadlineValue && !isValidDeadline(deadlineValue)) {
+      Alert.alert("Invalid Deadline", "Use 24-hour time like 09:30 or 22:00.");
+      return;
+    }
     onSave(trimmed, deadlineValue || undefined, deadlineValue ? reminderOffsetMinutes : null);
     onClose();
   };
@@ -69,12 +75,13 @@ export default function EditTaskModal({
         <Pressable style={styles.backdrop} onPress={onClose} />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "position"}
+          pointerEvents="box-none"
           style={styles.kavWrapper}
           contentContainerStyle={styles.kavContent}
         >
           <View style={[styles.sheet, { backgroundColor: colors.card }]}>
             <ScrollView
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 16 }]}
             >
@@ -144,14 +151,15 @@ export default function EditTaskModal({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
-  backdrop: { ...StyleSheet.absoluteFillObject },
-  kavWrapper: { flex: 1, justifyContent: "flex-end" },
+  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
+  kavWrapper: { flex: 1, justifyContent: "flex-end", zIndex: 1 },
   kavContent: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     maxHeight: "92%",
     overflow: "hidden",
+    elevation: 8,
   },
   sheetContent: { paddingTop: 12, paddingHorizontal: 20, gap: 12 },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 8 },
@@ -167,7 +175,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   reminderRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   reminderChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1 },

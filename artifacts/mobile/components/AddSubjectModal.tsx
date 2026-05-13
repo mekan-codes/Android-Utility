@@ -62,12 +62,13 @@ export default function AddSubjectModal({
         <Pressable style={styles.backdrop} onPress={handleClose} />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "position"}
+          pointerEvents="box-none"
           style={styles.kavWrapper}
           contentContainerStyle={styles.kavContent}
         >
           <View style={[styles.sheet, { backgroundColor: colors.card }]}>
             <ScrollView
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 16 }]}
             >
@@ -145,10 +146,12 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   kavWrapper: {
     flex: 1,
     justifyContent: "flex-end",
+    zIndex: 1,
   },
   kavContent: {
     flex: 1,
@@ -159,6 +162,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: "92%",
     overflow: "hidden",
+    elevation: 8,
   },
   sheetContent: {
     paddingTop: 12,
@@ -187,7 +191,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_500Medium",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     marginBottom: -4,
   },
   colorRow: {

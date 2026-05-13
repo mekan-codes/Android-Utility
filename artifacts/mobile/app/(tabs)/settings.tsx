@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import BrandMark from "@/components/BrandMark";
 import { useRoutine } from "@/context/RoutineContext";
 import { PomodoroSettings, useStudy } from "@/context/StudyContext";
 import { ThemePreference, useTheme } from "@/context/ThemeContext";
@@ -439,7 +440,13 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.scroll, { paddingTop: topPad + 16, paddingBottom: bottomPad + 110 }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.headline, { color: colors.foreground }]}>Settings</Text>
+        <View style={styles.header}>
+          <BrandMark size={46} />
+          <View style={styles.headerCopy}>
+            <Text style={[styles.headline, { color: colors.foreground }]}>Settings</Text>
+            <Text style={[styles.subhead, { color: colors.mutedForeground }]}>Preferences and local data</Text>
+          </View>
+        </View>
 
         <Section title="Appearance" icon="eye">
           <View style={styles.themeOptions}>
@@ -643,8 +650,21 @@ function Separator() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingHorizontal: 18 },
-  headline: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 20 },
-  section: { borderRadius: 14, borderWidth: 1, marginBottom: 16, overflow: "hidden" },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headline: { fontSize: 29, fontFamily: "Inter_700Bold", letterSpacing: 0 },
+  subhead: { fontSize: 12, fontFamily: "Inter_600SemiBold", marginTop: 2 },
+  section: {
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 16,
+    overflow: "hidden",
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 1,
+  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -662,20 +682,20 @@ const styles = StyleSheet.create({
   rowValue: { fontSize: 14, fontFamily: "Inter_500Medium" },
   separator: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
   themeOptions: { flexDirection: "row", gap: 8, padding: 16 },
-  themeButton: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 10, alignItems: "center", gap: 5 },
+  themeButton: { flex: 1, borderWidth: 1, borderRadius: 12, paddingVertical: 10, alignItems: "center", gap: 5 },
   themeButtonText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   timerGrid: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 14 },
   timerField: { flex: 1, gap: 6 },
   fieldLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", textTransform: "uppercase" },
-  numInput: { borderRadius: 10, paddingVertical: 10, textAlign: "center", fontSize: 16, fontFamily: "Inter_700Bold" },
-  saveBtn: { margin: 16, paddingVertical: 12, alignItems: "center", borderRadius: 10 },
+  numInput: { borderRadius: 12, paddingVertical: 10, textAlign: "center", fontSize: 16, fontFamily: "Inter_700Bold" },
+  saveBtn: { margin: 16, paddingVertical: 12, alignItems: "center", borderRadius: 12 },
   saveBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
   backupReminderBlock: { paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
   intervalRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  intervalChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1 },
+  intervalChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
   intervalChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 8, paddingHorizontal: 16, paddingVertical: 14 },
   infoText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
-  dangerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, margin: 16, paddingVertical: 12, borderWidth: 1, borderRadius: 10 },
+  dangerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, margin: 16, paddingVertical: 12, borderWidth: 1, borderRadius: 12 },
   dangerBtnText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });

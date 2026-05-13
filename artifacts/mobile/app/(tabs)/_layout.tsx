@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 const TAB_ICONS = {
@@ -24,20 +24,38 @@ export default function TabLayout() {
         tabBarStyle: {
           position: "absolute",
           backgroundColor: colors.card,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          elevation: 0,
-          height: isWeb ? 84 : 64,
-          paddingTop: 4,
+          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 24,
+          left: 16,
+          right: 16,
+          bottom: isWeb ? 16 : 12,
+          height: isWeb ? 78 : 68,
+          paddingTop: 7,
+          paddingBottom: isWeb ? 8 : 7,
+          shadowColor: "#111827",
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.12,
+          shadowRadius: 18,
+          elevation: 12,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontFamily: "Inter_500Medium",
-          marginBottom: isWeb ? 0 : 5,
+          fontFamily: "Inter_600SemiBold",
+          marginTop: 1,
+          marginBottom: 0,
         },
-        tabBarIcon: ({ color }) => {
+        tabBarItemStyle: {
+          paddingVertical: 2,
+        },
+        tabBarIcon: ({ color, focused }) => {
           const name = TAB_ICONS[route.name as keyof typeof TAB_ICONS] ?? "circle";
-          return <Feather name={name} size={21} color={color} />;
+          return (
+            <View style={[styles.iconWrap, focused && { backgroundColor: colors.secondary }]}>
+              <Feather name={name} size={19} color={color} />
+            </View>
+          );
         },
       })}
     >
@@ -48,3 +66,13 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    width: 34,
+    height: 28,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

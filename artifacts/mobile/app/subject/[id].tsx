@@ -98,7 +98,7 @@ export default function SubjectDetailScreen() {
 
   const handleStartPomodoro = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (pomodoro && pomodoro.subjectId !== id) {
+    if (pomodoro) {
       Alert.alert("Session Active", `Stop current session for "${pomodoro.subjectName}" first.`, [{ text: "OK" }]);
       return;
     }
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   colorDot: { width: 12, height: 12, borderRadius: 6 },
-  headline: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: -0.3 },
+  headline: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 0 },
   iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   statsGrid: {
     flexDirection: "row",
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statValue: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  statLabel: { fontSize: 10, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0.4 },
+  statLabel: { fontSize: 10, fontFamily: "Inter_500Medium", textTransform: "uppercase", letterSpacing: 0 },
   actionRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   actionBtn: {
     flexDirection: "row",

@@ -48,7 +48,7 @@ export default function PomodoroDisplay({
         { backgroundColor: colors.card, borderColor: progressColor + "30", borderRadius: 20 },
       ]}
     >
-      <View style={styles.progressBarBg}>
+      <View style={[styles.progressBarBg, { backgroundColor: colors.border }]}>
         <View
           style={[
             styles.progressBarFill,
@@ -107,18 +107,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 2,
   },
-  progressBarBg: { height: 4, backgroundColor: "#E5E7F0", width: "100%" },
+  progressBarBg: { height: 4, width: "100%" },
   progressBarFill: { height: 4, borderRadius: 2 },
   inner: { padding: 20, alignItems: "center", gap: 6 },
   topRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   phaseBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  phaseText: { fontSize: 12, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.5 },
+  phaseText: { fontSize: 12, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0 },
   cycleBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   cycleText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   subjectName: { fontSize: 13, fontFamily: "Inter_500Medium" },

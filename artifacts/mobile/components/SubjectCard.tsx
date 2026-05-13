@@ -99,7 +99,7 @@ export default function SubjectCard({
           {
             backgroundColor: colors.card,
             borderColor: isActive ? color : colors.border,
-            borderRadius: 14,
+            borderRadius: 18,
             borderWidth: isActive ? 2 : 1,
           },
         ]}
@@ -110,7 +110,10 @@ export default function SubjectCard({
           <View style={styles.titleRow}>
             <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={1}>{name}</Text>
             <TouchableOpacity
-              onPress={handleMenuPress}
+              onPress={(event) => {
+                event.stopPropagation();
+                handleMenuPress();
+              }}
               style={[styles.menuBtn, { backgroundColor: colors.muted }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
@@ -139,7 +142,10 @@ export default function SubjectCard({
         </View>
 
         <TouchableOpacity
-          onPress={handleStart}
+          onPress={(event) => {
+            event.stopPropagation();
+            handleStart();
+          }}
           style={[
             styles.startBtn,
             {
@@ -210,14 +216,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
     overflow: "hidden",
   },
   colorBar: {
-    width: 4,
+    width: 5,
     alignSelf: "stretch",
     flexShrink: 0,
   },
@@ -229,7 +235,7 @@ const styles = StyleSheet.create({
   },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   name: { fontSize: 15, fontFamily: "Inter_600SemiBold", flex: 1 },
-  menuBtn: { width: 30, height: 30, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  menuBtn: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   statsRow: { flexDirection: "row", alignItems: "center", gap: 14 },
   statItem: { alignItems: "flex-start" },
   statLabel: { fontSize: 10, fontFamily: "Inter_500Medium", textTransform: "uppercase" },
@@ -244,13 +250,14 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   actionOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" },
-  actionBackdrop: { ...StyleSheet.absoluteFillObject },
+  actionBackdrop: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
   actionSheet: {
     margin: 16,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     gap: 8,
+    zIndex: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
@@ -260,9 +267,9 @@ const styles = StyleSheet.create({
   actionHandle: { width: 38, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 4 },
   actionTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 4 },
   actionGrid: { flexDirection: "row", gap: 8 },
-  actionButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12 },
+  actionButton: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14 },
   actionGridButton: { flex: 1 },
   actionText: { fontSize: 14, fontFamily: "Inter_600SemiBold", flexShrink: 1 },
-  cancelButton: { alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: 12, borderWidth: 1, marginTop: 2 },
+  cancelButton: { alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: 14, borderWidth: 1, marginTop: 2 },
   cancelText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 });
