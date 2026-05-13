@@ -27,6 +27,7 @@ import {
   NotificationSettings,
   requestNotificationPermission,
 } from "@/utils/notifications";
+import { getLocalDateDiffFromToday } from "@/utils/localDate";
 
 type BackupData = {
   version: number;
@@ -185,7 +186,6 @@ export default function SettingsScreen() {
     resetRoutineData,
     rescheduleTaskNotifications,
     dailyTasks,
-    tempTasks,
     allTempTasks,
   } = useRoutine();
 
@@ -353,7 +353,7 @@ export default function SettingsScreen() {
             onPress: async () => {
               setImporting(true);
               const routineSnapshot = { dailyTasks, tempTasks: allTempTasks };
-              const studySnapshot = { subjects, sessions, settings, notificationSettings };
+              const studySnapshot = { subjects, sessions, settings, notificationSettings, lastBackupDate };
               const themeSnapshot = themePreference;
               try {
                 await importStudyData({
@@ -364,6 +364,7 @@ export default function SettingsScreen() {
                     ...DEFAULT_NOTIFICATION_SETTINGS,
                     ...backup.notificationSettings,
                   },
+                  lastBackupDate: backup.settings.lastBackupDate,
                 });
                 const pref = backup.settings.themePreference;
                 if (pref === "light" || pref === "dark" || pref === "system") setThemePreference(pref);
@@ -411,7 +412,8 @@ export default function SettingsScreen() {
 
   const lastBackupLabel = lastBackupDate
     ? (() => {
-        const days = Math.floor((Date.now() - new Date(lastBackupDate).getTime()) / 86400000);
+        const days = getLocalDateDiffFromToday(lastBackupDate);
+        if (days === null) return lastBackupDate;
         if (days <= 0) return "Today";
         if (days === 1) return "Yesterday";
         return `${days} days ago`;
@@ -605,7 +607,7 @@ export default function SettingsScreen() {
         <Section title="Storage" icon="database">
           <Row label="Type" right={<Text style={[styles.rowValue, { color: colors.mutedForeground }]}>Local only</Text>} />
           <Separator />
-          <Row label="Tasks" right={<Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{dailyTasks.length + tempTasks.length}</Text>} />
+          <Row label="Tasks" right={<Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{dailyTasks.length + allTempTasks.length}</Text>} />
           <Separator />
           <Row label="Subjects" right={<Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{subjects.length}</Text>} />
           <Separator />

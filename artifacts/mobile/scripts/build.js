@@ -7,6 +7,7 @@ const { pipeline } = require("stream/promises");
 let metroProcess = null;
 
 const projectRoot = path.resolve(__dirname, "..");
+const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 function findWorkspaceRoot(startDir) {
   let dir = startDir;
@@ -54,23 +55,45 @@ function stripProtocol(domain) {
   return new URL(urlString).host;
 }
 
-function getDeploymentDomain() {
+function normalizeBaseUrl(input, defaultProtocol = "https") {
+  const value = input.trim();
+  const withProtocol = /^[a-z]+:\/\//i.test(value)
+    ? value
+    : `${defaultProtocol}://${value}`;
+  return new URL(withProtocol).toString().replace(/\/$/, "");
+}
+
+function getDeploymentTarget() {
+  const explicitUrl = process.env.BUILD_URL || process.env.DEPLOYMENT_URL;
+  if (explicitUrl) {
+    const baseUrl = normalizeBaseUrl(explicitUrl, "https");
+    return { domain: new URL(baseUrl).host, baseUrl };
+  }
+
   if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
+    const domain = stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
+    return { domain, baseUrl: `https://${domain}` };
   }
 
   if (process.env.REPLIT_DEV_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_DEV_DOMAIN);
+    const domain = stripProtocol(process.env.REPLIT_DEV_DOMAIN);
+    return { domain, baseUrl: `https://${domain}` };
   }
 
   if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
+    const domain = stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
+    return { domain, baseUrl: `https://${domain}` };
   }
 
-  console.error(
-    "ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN",
+  if (process.env.BUILD_DOMAIN) {
+    const domain = stripProtocol(process.env.BUILD_DOMAIN);
+    return { domain, baseUrl: `https://${domain}` };
+  }
+
+  console.warn(
+    "WARNING: No deployment domain found. Using http://127.0.0.1 for a local static build.",
   );
-  process.exit(1);
+  return { domain: "127.0.0.1", baseUrl: "http://127.0.0.1" };
 }
 
 function prepareDirectories(timestamp) {
@@ -147,7 +170,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
   }
 
   metroProcess = spawn(
-    "pnpm",
+    pnpmCommand,
     [
       "exec",
       "expo",
@@ -464,6 +487,8 @@ function updateBundleUrls(timestamp, baseUrl) {
 }
 
 function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
+  const baseHost = new URL(baseUrl).host;
+
   const updateForPlatform = (platform, manifest) => {
     if (!manifest.launchAsset || !manifest.extra) {
       exitWithError(`Malformed manifest for ${platform}`);
@@ -474,10 +499,8 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
     manifest.createdAt = new Date(
       Number(timestamp.split("-")[0]),
     ).toISOString();
-    manifest.extra.expoClient.hostUri =
-      baseUrl.replace("https://", "") + "/" + platform;
-    manifest.extra.expoGo.debuggerHost =
-      baseUrl.replace("https://", "") + "/" + platform;
+    manifest.extra.expoClient.hostUri = `${baseHost}/${platform}`;
+    manifest.extra.expoGo.debuggerHost = `${baseHost}/${platform}`;
     manifest.extra.expoGo.packagerOpts.dev = false;
 
     if (manifest.assets && manifest.assets.length > 0) {
@@ -510,9 +533,8 @@ async function main() {
 
   setupSignalHandlers();
 
-  const domain = getDeploymentDomain();
+  const { domain, baseUrl } = getDeploymentTarget();
   const expoPublicReplId = getExpoPublicReplId();
-  const baseUrl = `https://${domain}`;
   const timestamp = `${Date.now()}-${process.pid}`;
 
   prepareDirectories(timestamp);

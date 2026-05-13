@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { parseLocalDate } from "@/utils/localDate";
 
 export type ReminderOffsetMinutes = null | 0 | 5 | 10 | 30;
 export type BackupReminderIntervalDays = null | 7 | 14 | 30;
@@ -179,7 +180,7 @@ export async function rescheduleBackupReminder(
   const hasPermission = await requestNotificationPermission();
   if (!hasPermission) return { ...settings, backupReminderNotificationId: null };
 
-  const base = lastBackupDate ? new Date(lastBackupDate) : new Date();
+  const base = lastBackupDate ? parseLocalDate(lastBackupDate) ?? new Date() : new Date();
   base.setDate(base.getDate() + settings.backupReminderIntervalDays);
   base.setHours(9, 0, 0, 0);
   const seconds = Math.max(60, Math.round((base.getTime() - Date.now()) / 1000));

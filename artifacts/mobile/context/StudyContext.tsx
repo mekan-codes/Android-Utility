@@ -19,6 +19,7 @@ import {
   saveNotificationSettings,
   schedulePomodoroNotification,
 } from "@/utils/notifications";
+import { formatLocalMonthKey, parseLocalDate } from "@/utils/localDate";
 
 const KEYS = {
   SUBJECTS: "@resetflow/subjects",
@@ -339,7 +340,13 @@ interface StudyContextValue {
   getChartData: (filter: StatFilter) => ChartPoint[];
   getLast7DaysData: () => ChartPoint[];
   exportStudyData: () => object;
-  importStudyData: (data: { subjects?: unknown[]; sessions?: unknown[]; settings?: unknown; notificationSettings?: unknown }) => Promise<void>;
+  importStudyData: (data: {
+    subjects?: unknown[];
+    sessions?: unknown[];
+    settings?: unknown;
+    notificationSettings?: unknown;
+    lastBackupDate?: unknown;
+  }) => Promise<void>;
   resetStudyData: () => Promise<void>;
   setLastBackupDate: (date: string) => void;
 }
@@ -936,7 +943,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     if (filter === "year") {
       return Array.from({ length: 12 }, (_, i) => {
         const d = new Date(today.getFullYear(), today.getMonth() - (11 - i), 1);
-        const month = d.toISOString().slice(0, 7);
+        const month = formatLocalMonthKey(d);
         const minutes = sessions
           .filter((s) => s.date.startsWith(month))
           .reduce((sum, s) => sum + s.durationMinutes, 0);
@@ -978,6 +985,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     sessions?: unknown[];
     settings?: unknown;
     notificationSettings?: unknown;
+    lastBackupDate?: unknown;
   }) => {
     const importedSubjects = Array.isArray(data.subjects)
       ? data.subjects.map(normalizeSubject).filter(Boolean) as Subject[]
@@ -987,6 +995,14 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       : [];
     const importedSettings = normalizeSettings(data.settings);
     const importedNotificationSettings = normalizeNotificationSettings(data.notificationSettings);
+    const importedLastBackupDate =
+      typeof data.lastBackupDate === "string" && parseLocalDate(data.lastBackupDate)
+        ? data.lastBackupDate
+        : null;
+    const notificationSettingsWithBackup = await rescheduleBackupReminder(
+      importedNotificationSettings,
+      importedLastBackupDate
+    ).catch(() => ({ ...importedNotificationSettings, backupReminderNotificationId: null }));
 
     clearPomodoroInterval();
     invalidatePendingPomodoroWork();
@@ -1000,7 +1016,8 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     );
     setSessions(importedSessions);
     setSettings(importedSettings);
-    setNotificationSettingsState(importedNotificationSettings);
+    setNotificationSettingsState(notificationSettingsWithBackup);
+    setLastBackupDateState(importedLastBackupDate);
     pomodoroRef.current = null;
     setPomodoro(null);
     setLastSavedSession(null);
@@ -1009,7 +1026,10 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.setItem(KEYS.SUBJECTS, JSON.stringify(importedSubjects)),
       AsyncStorage.setItem(KEYS.SESSIONS, JSON.stringify(importedSessions)),
       AsyncStorage.setItem(KEYS.SETTINGS, JSON.stringify(importedSettings)),
-      saveNotificationSettings(importedNotificationSettings),
+      saveNotificationSettings(notificationSettingsWithBackup),
+      importedLastBackupDate
+        ? AsyncStorage.setItem(KEYS.LAST_BACKUP, importedLastBackupDate)
+        : AsyncStorage.removeItem(KEYS.LAST_BACKUP),
       AsyncStorage.removeItem(KEYS.POMODORO),
     ]);
   }, [clearPomodoroInterval, invalidatePendingPomodoroWork]);
@@ -1018,11 +1038,15 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     clearPomodoroInterval();
     invalidatePendingPomodoroWork();
     await cancelNotifications(pomodoroRef.current?.notificationIds ?? []);
+    const notificationSettingsAfterReset = await rescheduleBackupReminder(notificationSettings, null)
+      .catch(() => ({ ...notificationSettings, backupReminderNotificationId: null }));
     setSubjects([]);
     sessionsRef.current = [];
     savedPomodoroPhaseKeysRef.current = new Set();
     setSessions([]);
     setSettings({ workMinutes: 25, breakMinutes: 5, cycles: 4 });
+    setNotificationSettingsState(notificationSettingsAfterReset);
+    setLastBackupDateState(null);
     pomodoroRef.current = null;
     setPomodoro(null);
     setLastSavedSession(null);
@@ -1030,9 +1054,11 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.removeItem(KEYS.SUBJECTS),
       AsyncStorage.removeItem(KEYS.SESSIONS),
       AsyncStorage.removeItem(KEYS.SETTINGS),
+      AsyncStorage.removeItem(KEYS.LAST_BACKUP),
       AsyncStorage.removeItem(KEYS.POMODORO),
+      saveNotificationSettings(notificationSettingsAfterReset),
     ]);
-  }, [clearPomodoroInterval, invalidatePendingPomodoroWork]);
+  }, [clearPomodoroInterval, invalidatePendingPomodoroWork, notificationSettings]);
 
   return (
     <StudyContext.Provider value={{

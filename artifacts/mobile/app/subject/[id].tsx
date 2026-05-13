@@ -16,6 +16,7 @@ import EditSubjectModal from "@/components/EditSubjectModal";
 import ManualSessionModal from "@/components/ManualSessionModal";
 import { useStudy } from "@/context/StudyContext";
 import { useColors } from "@/hooks/useColors";
+import { formatLocalDate } from "@/utils/localDate";
 
 function formatMinutes(minutes: number): string {
   if (minutes === 0) return "0m";
@@ -77,7 +78,8 @@ export default function SubjectDetailScreen() {
     .filter((s) => s.subjectId === id)
     .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
 
-  const todayStr = new Date().toISOString().split("T")[0] as string;
+  const todayStr = formatLocalDate(new Date());
+  const recentSessions = subjectSessions.slice(0, 20);
 
   const getMinutesSince = (days: number) => {
     const since = getDateDaysAgo(days);
@@ -203,7 +205,7 @@ export default function SubjectDetailScreen() {
               </Text>
             </View>
           ) : (
-            subjectSessions.slice(0, 20).map((session, idx) => {
+            recentSessions.map((session, idx) => {
               const date = new Date(session.completedAt);
               const isToday = session.date === todayStr;
               const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -220,7 +222,7 @@ export default function SubjectDetailScreen() {
                     styles.sessionRow,
                     {
                       borderBottomColor: colors.border,
-                      borderBottomWidth: idx < subjectSessions.length - 1 ? StyleSheet.hairlineWidth : 0,
+                      borderBottomWidth: idx < recentSessions.length - 1 ? StyleSheet.hairlineWidth : 0,
                     },
                   ]}
                 >

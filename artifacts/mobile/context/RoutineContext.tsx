@@ -8,6 +8,7 @@ import {
   loadNotificationSettings,
   scheduleTaskReminder,
 } from "@/utils/notifications";
+import { formatLocalDate } from "@/utils/localDate";
 
 const KEYS = {
   DAILY_TASKS: "@resetflow/daily_tasks",
@@ -40,13 +41,13 @@ export interface TempTask {
 }
 
 export function getTodayStr(): string {
-  return new Date().toISOString().split("T")[0] as string;
+  return formatLocalDate(new Date());
 }
 
 export function getTomorrowStr(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().split("T")[0] as string;
+  return formatLocalDate(d);
 }
 
 export function deadlineToMinutes(deadline?: string): number | null {
